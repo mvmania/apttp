@@ -1,0 +1,1129 @@
+{
+  "stakeholders": [
+    {
+      "stakeholder_id": "s1",
+      "name": "Asia-Pacific Centre for Transfer of Technologies (APCTT)",
+      "category": "Intergovernmental organisation",
+      "description": "A regional institute of the United Nations Economic and Social Commission for Asia and the Pacific (ESCAP). We facilitate regional cooperation and capacity building for technology transfer.",
+      "legal_address": "New Delhi, India",
+      "legal_document_id": "UN-ESCAP-001",
+      "website": "https://apctt.org",
+      "contact_name": "Director Office",
+      "contact_email": "director.apctt@un.org",
+      "phone": "+91 9650853838",
+      "whatsapp_enabled": false,
+      "is_verified": true,
+      "key_tech_areas": [
+        "Climate Tech",
+        "Smart Agriculture",
+        "Water Management",
+        "Green Energy"
+      ],
+      "roles": [
+        "Provider",
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s2",
+      "name": "GreenFuture Tech Inc.",
+      "category": "Private sector organisation",
+      "description": "Leading provider of solar and wind energy harvesting solutions with a focus on high-efficiency perovskite cells.",
+      "legal_address": "Singapore Science Park II",
+      "legal_document_id": "SG-REG-9921",
+      "website": "https://greenfuture.example.com",
+      "contact_name": "John Chen",
+      "contact_email": "j.chen@greenfuture.com",
+      "phone": "+65 6777 0000",
+      "whatsapp_enabled": true,
+      "is_verified": true,
+      "key_tech_areas": [
+        "Solar PV",
+        "Wind Turbines",
+        "Battery Storage",
+        "Energy Efficiency"
+      ],
+      "roles": [
+        "Provider"
+      ]
+    },
+    {
+      "stakeholder_id": "s3",
+      "name": "Nexus Ventures Asia",
+      "category": "Financial institution",
+      "description": "A venture capital firm dedicated to scaling deep-tech innovations that address climate change and food security in the APAC region.",
+      "legal_address": "Tokyo, Japan",
+      "legal_document_id": "JP-VC-4412",
+      "website": "https://nexus-ventures.example.com",
+      "contact_name": "Sarah Sato",
+      "contact_email": "invest@nexusasia.com",
+      "whatsapp_enabled": false,
+      "is_verified": true,
+      "key_tech_areas": [
+        "Agri-Tech",
+        "Renewable Energy",
+        "Clean Water",
+        "Circular Economy"
+      ],
+      "roles": [
+        "Investor"
+      ],
+      "investor_info": {
+        "funding_types": [
+          "Equity",
+          "Convertible Notes",
+          "Venture Debt"
+        ],
+        "investment_range": "$500k - $5M",
+        "preferred_trl_min": 5,
+        "typical_deal_cycle": "3-6 Months"
+      }
+    },
+    {
+      "stakeholder_id": "s4",
+      "name": "Seoul National University R&DB Foundation",
+      "category": "Research and academic institution",
+      "description": "The technology commercialization arm of SNU, managing a vast portfolio of IP in biotech, materials, and robotics.",
+      "legal_address": "Seoul, South Korea",
+      "legal_document_id": "KR-EDU-7701",
+      "website": "https://snu.ac.kr",
+      "contact_name": "Dr. Min-ho Lee",
+      "contact_email": "tech.transfer@snu.ac.kr",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Bio-tech",
+        "AI/Robotics",
+        "Quantum Computing"
+      ],
+      "roles": [
+        "Provider"
+      ]
+    },
+    {
+      "stakeholder_id": "s5",
+      "name": "Tsinghua University TTO",
+      "category": "Research and academic institution",
+      "description": "Leading technology transfer office in Beijing, focusing on core hardware and software breakthroughs.",
+      "legal_address": "Beijing, China",
+      "legal_document_id": "CN-TTO-1002",
+      "website": "https://tsinghua.edu.cn",
+      "contact_name": "Wang Wei",
+      "contact_email": "tto@tsinghua.edu.cn",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Semiconductors",
+        "New Energy",
+        "Advanced Manufacturing"
+      ],
+      "roles": [
+        "Provider"
+      ]
+    },
+    {
+      "stakeholder_id": "s6",
+      "name": "IIT Delhi Innovation Hub",
+      "category": "Research and academic institution",
+      "description": "Incubating deep-tech startups and facilitating technology transfer for inclusive social impact.",
+      "legal_address": "New Delhi, India",
+      "legal_document_id": "IN-IIT-5501",
+      "website": "https://iitd.ac.in",
+      "contact_name": "Amit Kumar",
+      "contact_email": "innovate@iitd.ac.in",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Healthcare",
+        "Assistive Tech",
+        "Waste Management"
+      ],
+      "roles": [
+        "Provider",
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s7",
+      "name": "CSIRO Australia",
+      "category": "Government/Ministry",
+      "description": "Australia's national science agency, focusing on solving the greatest challenges through innovative science and technology.",
+      "legal_address": "Canberra, Australia",
+      "legal_document_id": "AU-GOV-9901",
+      "website": "https://csiro.au",
+      "contact_name": "Business Development",
+      "contact_email": "partnerships@csiro.au",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Space Science",
+        "Cybersecurity",
+        "Hydrogen Energy"
+      ],
+      "roles": [
+        "Provider"
+      ]
+    },
+    {
+      "stakeholder_id": "s8",
+      "name": "VinFast Innovation Lab",
+      "category": "Private sector organisation",
+      "description": "The R&D division of VinFast, focused on electric vehicle battery technology and autonomous driving.",
+      "legal_address": "Hanoi, Vietnam",
+      "legal_document_id": "VN-REG-3341",
+      "website": "https://vinfastauto.com",
+      "contact_name": "Nguyen Anh",
+      "contact_email": "lab@vinfast.vn",
+      "is_verified": true,
+      "key_tech_areas": [
+        "EV Batteries",
+        "Autonomous Systems",
+        "Connected Cars"
+      ],
+      "roles": [
+        "Provider",
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s9",
+      "name": "PT GoTo Tbk",
+      "category": "Private sector organisation",
+      "description": "Indonesia's largest digital ecosystem, seeking technologies for logistics and financial inclusion.",
+      "legal_address": "Jakarta, Indonesia",
+      "legal_document_id": "ID-REG-5521",
+      "website": "https://gotocompany.com",
+      "contact_email": "tech.ops@goto.com",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Fintech",
+        "E-commerce",
+        "Last-mile Delivery"
+      ],
+      "roles": [
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s10",
+      "name": "Asian Development Bank (ADB)",
+      "category": "Financial institution",
+      "description": "Providing technical assistance and funding for infrastructure projects in Asia and the Pacific.",
+      "legal_address": "Manila, Philippines",
+      "legal_document_id": "ADB-INT-001",
+      "website": "https://adb.org",
+      "contact_email": "tech.funding@adb.org",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Infrastructure",
+        "Climate Finance",
+        "Digital Governance"
+      ],
+      "roles": [
+        "Investor"
+      ]
+    },
+    {
+      "stakeholder_id": "s11",
+      "name": "JST (Japan Science & Tech)",
+      "category": "Government/Ministry",
+      "description": "Funding and facilitating breakthroughs in science and technology for society.",
+      "legal_address": "Tokyo, Japan",
+      "legal_document_id": "JP-GOV-1102",
+      "website": "https://jst.go.jp",
+      "contact_email": "inquiry@jst.go.jp",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Life Sciences",
+        "Basic Science",
+        "Global Warming"
+      ],
+      "roles": [
+        "Provider",
+        "Investor"
+      ]
+    },
+    {
+      "stakeholder_id": "s12",
+      "name": "Cyberport Hong Kong",
+      "category": "Partnership",
+      "description": "A creative digital community with over 1,900 technology companies and startups.",
+      "legal_address": "Hong Kong",
+      "legal_document_id": "HK-CY-2003",
+      "website": "https://cyberport.hk",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Web3",
+        "EdTech",
+        "Smart City"
+      ],
+      "roles": [
+        "Provider",
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s13",
+      "name": "BioFarman",
+      "category": "Private sector organisation",
+      "description": "Large scale biopharmaceutical production company focused on vaccines and essential medicines.",
+      "legal_address": "Bandung, Indonesia",
+      "legal_document_id": "ID-BIO-4491",
+      "website": "https://biofarman.co.id",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Vaccinology",
+        "Bioprocessing",
+        "Cold Chain"
+      ],
+      "roles": [
+        "Provider",
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s14",
+      "name": "Mekong River Commission",
+      "category": "Intergovernmental organisation",
+      "description": "Intergovernmental organisation for regional dialogue and cooperation in the lower Mekong River Basin.",
+      "legal_address": "Vientiane, Laos",
+      "legal_document_id": "MRC-INT-880",
+      "website": "https://mrcmekong.org",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Water Resource Mgmt",
+        "Fisheries",
+        "Environmental Monitoring"
+      ],
+      "roles": [
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s15",
+      "name": "Pacific Islands Forum",
+      "category": "Regional organisation",
+      "description": "The region's premier political and economic policy organisation.",
+      "legal_address": "Suva, Fiji",
+      "legal_document_id": "PIF-SEC-112",
+      "website": "https://forumsec.org",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Ocean Management",
+        "Disaster Resilience",
+        "Blue Economy"
+      ],
+      "roles": [
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s16",
+      "name": "Khazanah Nasional Berhad",
+      "category": "Financial institution",
+      "description": "The sovereign wealth fund of the Government of Malaysia.",
+      "legal_address": "Kuala Lumpur, Malaysia",
+      "legal_document_id": "MY-REG-8812",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Telecommunications",
+        "Healthcare",
+        "Aviation"
+      ],
+      "roles": [
+        "Investor"
+      ]
+    },
+    {
+      "stakeholder_id": "s17",
+      "name": "Tata Consultancy Services",
+      "category": "Private sector organisation",
+      "description": "Global leader in IT services, consulting & business solutions.",
+      "legal_address": "Mumbai, India",
+      "website": "https://tcs.com",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Enterprise Software",
+        "Cloud Computing",
+        "AI"
+      ],
+      "roles": [
+        "Provider"
+      ]
+    },
+    {
+      "stakeholder_id": "s18",
+      "name": "UNESCAP Transport",
+      "category": "Intergovernmental organisation",
+      "description": "Promoting sustainable transportation networks across the Asia-Pacific region.",
+      "legal_address": "Bangkok, Thailand",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Green Transport",
+        "Logistics",
+        "Road Safety"
+      ],
+      "roles": [
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s19",
+      "name": "Bangkok Innovation Hub",
+      "category": "Private sector organisation",
+      "description": "A hub connecting local startups with international technology providers.",
+      "legal_address": "Bangkok, Thailand",
+      "is_verified": true,
+      "key_tech_areas": [
+        "Startup Ecosystem",
+        "Networking"
+      ],
+      "roles": [
+        "Seeker"
+      ]
+    },
+    {
+      "stakeholder_id": "s20",
+      "name": "Temasek Holdings",
+      "category": "Financial institution",
+      "description": "Global investment company headquartered in Singapore.",
+      "legal_address": "Singapore",
+      "is_verified": true,
+      "roles": [
+        "Investor"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "admin",
+      "name": "APCTT Platform Admin",
+      "email": "admin@apctt.org",
+      "scenario": "Platform Administrator",
+      "stakeholder_id": "s1",
+      "is_verified": true,
+      "is_email_verified": true,
+      "is_id_verified": true,
+      "verification_status": "Approved",
+      "isAdmin": true,
+      "joinedDate": 1704067200000
+    },
+    {
+      "id": "u1",
+      "name": "John Chen",
+      "email": "j.chen@greenfuture.com",
+      "scenario": "Official Representative",
+      "stakeholder_id": "s2",
+      "is_verified": true,
+      "is_email_verified": true,
+      "is_id_verified": true,
+      "verification_status": "Approved",
+      "is_primary_rep": true,
+      "joinedDate": 1704067200000,
+      "isAdmin": true
+    },
+    {
+      "id": "u1767351694883",
+      "name": "Soohyung Kim",
+      "email": "soohyung.kim@un.org",
+      "password": "ksh557512",
+      "scenario": "Official Representative",
+      "stakeholder_id": "s1",
+      "is_verified": true,
+      "is_email_verified": true,
+      "is_id_verified": true,
+      "verification_status": "Approved",
+      "joinedDate": 1767351694883,
+      "isAdmin": false
+    },
+    {
+      "id": "u1767601219572",
+      "name": "Soohyung Kim",
+      "email": "mvmania0@gmail.com",
+      "password": "ksh557512",
+      "scenario": "Individual Participant",
+      "stakeholder_id": "",
+      "is_verified": false,
+      "is_email_verified": true,
+      "is_id_verified": false,
+      "verification_status": "None",
+      "joinedDate": 1767601219572
+    },
+    {
+      "id": "u1767602007911",
+      "name": "Soohyung Kim",
+      "email": "soohyung0kim@gmail.com",
+      "password": "ksh557512",
+      "scenario": "Individual Participant",
+      "stakeholder_id": "",
+      "is_verified": false,
+      "is_email_verified": true,
+      "is_id_verified": false,
+      "verification_status": "None",
+      "joinedDate": 1767602007911
+    }
+  ],
+  "technologies": [
+    {
+      "id": "t1",
+      "name": "Smart Irrigation AI",
+      "stakeholder_id": "s1",
+      "tech_category_id": "Agriculture",
+      "tech_sub_category_id": "Precision Farming",
+      "description": "An AI-powered system that optimizes water usage in agriculture using soil moisture sensors and weather forecasting.",
+      "ip_status": "patented",
+      "patent_number": "US-2023-0112",
+      "ip_owner": "Asia-Pacific Centre for Transfer of Technologies (APCTT)",
+      "licensing_availability": "Joint Development",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Public",
+      "trl_level": 7,
+      "imageUrl": "https://images.unsplash.com/photo-1563514227147-6d2ff665a6a0?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t2",
+      "name": "Ultra-Thin Perovskite Solar Cells",
+      "stakeholder_id": "s2",
+      "tech_category_id": "Energy",
+      "tech_sub_category_id": "Solar Photovoltaics",
+      "description": "High-efficiency solar cells that can be applied to flexible surfaces, increasing the range of solar energy applications.",
+      "ip_status": "filed",
+      "ip_owner": "GreenFuture Tech Inc.",
+      "licensing_availability": "Available for Licensing",
+      "geographic_restrictions": "ASEAN Region",
+      "disclosure_level": "Public Summary",
+      "trl_level": 5,
+      "imageUrl": "https://images.unsplash.com/photo-1509391366360-fe5bb58583bb?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t3",
+      "name": "Seaweed Bioplastic Packaging",
+      "stakeholder_id": "s4",
+      "tech_category_id": "Materials",
+      "tech_sub_category_id": "Sustainable Packaging",
+      "description": "Biodegradable packaging material made from cultivated seaweed, fully compostable within 6 weeks.",
+      "ip_status": "patented",
+      "patent_number": "KR-2022-0981",
+      "ip_owner": "SNU R&DB Foundation",
+      "licensing_availability": "Commercial Licensing",
+      "geographic_restrictions": "Global",
+      "disclosure_level": "Full Disclosure",
+      "trl_level": 6,
+      "imageUrl": "https://images.unsplash.com/photo-1621451537084-482c73073a0f?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t4",
+      "name": "Next-Gen EV Battery",
+      "stakeholder_id": "s8",
+      "tech_category_id": "Energy",
+      "tech_sub_category_id": "Energy Storage",
+      "description": "Solid-state battery tech with 40% higher energy density than current market leaders.",
+      "ip_status": "filed",
+      "ip_owner": "VinFast Innovation Lab",
+      "licensing_availability": "Research Partnership",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Restricted",
+      "trl_level": 4,
+      "imageUrl": "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t5",
+      "name": "AI for Early Crop Disease Detection",
+      "stakeholder_id": "s5",
+      "tech_category_id": "Agriculture",
+      "tech_sub_category_id": "Plant Pathology",
+      "description": "Satellite imaging combined with deep learning to detect fungal infections 14 days before visible symtoms.",
+      "ip_status": "know-how",
+      "ip_owner": "Tsinghua University TTO",
+      "licensing_availability": "SaaS / License",
+      "geographic_restrictions": "Mainland China",
+      "disclosure_level": "Confidential",
+      "trl_level": 8,
+      "imageUrl": "https://images.unsplash.com/photo-1530507629858-e4977d33e9e9?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t6",
+      "name": "Graphene-based Water Filter",
+      "stakeholder_id": "s6",
+      "tech_category_id": "Water Management",
+      "tech_sub_category_id": "Advanced Filtration",
+      "description": "Nanoscale filtration system that removes heavy metals and microplastics with 99.9% efficiency.",
+      "ip_status": "patented",
+      "patent_number": "IN-2021-0044",
+      "ip_owner": "IIT Delhi Innovation Hub",
+      "licensing_availability": "License / Joint Venture",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Public",
+      "trl_level": 7,
+      "imageUrl": "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t7",
+      "name": "Quantum Encryption Protocol",
+      "stakeholder_id": "s4",
+      "tech_category_id": "Digital Economy",
+      "tech_sub_category_id": "Cybersecurity",
+      "description": "Post-quantum cryptography suite for financial institutions and government agencies.",
+      "ip_status": "filed",
+      "ip_owner": "SNU R&DB Foundation",
+      "licensing_availability": "Subscription / License",
+      "geographic_restrictions": "Export Licensed Only",
+      "disclosure_level": "Confidential",
+      "trl_level": 5,
+      "imageUrl": "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t8",
+      "name": "Micro-Hydrogen Turbine",
+      "stakeholder_id": "s7",
+      "tech_category_id": "Energy",
+      "tech_sub_category_id": "Hydrogen Power",
+      "description": "Portable energy generation unit using waste hydrogen from industrial processes.",
+      "ip_status": "patented",
+      "patent_number": "AU-2024-0551",
+      "ip_owner": "CSIRO Australia",
+      "licensing_availability": "Pilot Project / License",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Public",
+      "trl_level": 4,
+      "imageUrl": "https://images.unsplash.com/photo-1605980776566-0486c4bd713b?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t9",
+      "name": "Low-Latency 6G RF Module",
+      "stakeholder_id": "s17",
+      "tech_category_id": "Digital Economy",
+      "tech_sub_category_id": "Telecommunications",
+      "description": "Hardware prototype for sub-terahertz communication in dense urban environments.",
+      "ip_status": "filed",
+      "ip_owner": "Tata Consultancy Services",
+      "licensing_availability": "Joint R&D",
+      "geographic_restrictions": "APAC",
+      "disclosure_level": "Restricted",
+      "trl_level": 3,
+      "imageUrl": "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t10",
+      "name": "Synthetic Meat Growth Medium",
+      "stakeholder_id": "s13",
+      "tech_category_id": "Biotechnology",
+      "tech_sub_category_id": "Cellular Agriculture",
+      "description": "Plant-based scaffolding and medium for cellular agriculture, reducing costs by 60%.",
+      "ip_status": "know-how",
+      "ip_owner": "BioFarman",
+      "licensing_availability": "Commercial Supply / License",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Confidential",
+      "trl_level": 6,
+      "imageUrl": "https://images.unsplash.com/photo-1584281723351-9d9aa81450ad?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t11",
+      "name": "Mekong Delta Salinity Monitor",
+      "stakeholder_id": "s14",
+      "tech_category_id": "Water Management",
+      "tech_sub_category_id": "Environmental IoT",
+      "description": "Low-power IoT sensor network for long-term monitoring of seawater intrusion in agricultural zones.",
+      "ip_status": "open",
+      "ip_owner": "Mekong River Commission",
+      "licensing_availability": "Open Source / Public Domain",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Public",
+      "trl_level": 9,
+      "imageUrl": "https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t12",
+      "name": "Ocean Thermal Energy Converter",
+      "stakeholder_id": "s15",
+      "tech_category_id": "Energy",
+      "tech_sub_category_id": "Marine Energy",
+      "description": "Renewable energy tech tapping into temperature gradients in Pacific waters.",
+      "ip_status": "filed",
+      "ip_owner": "Pacific Islands Forum",
+      "licensing_availability": "Joint Development",
+      "geographic_restrictions": "Pacific Islands",
+      "disclosure_level": "Public Summary",
+      "trl_level": 4,
+      "imageUrl": "https://images.unsplash.com/photo-1413882353051-1ecb00e82ec5?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t13",
+      "name": "Drought-Resistant Rice Strain",
+      "stakeholder_id": "s6",
+      "tech_category_id": "Agriculture",
+      "tech_sub_category_id": "Crop Improvement",
+      "description": "Genetically optimized rice variety that requires 30% less water than traditional types.",
+      "ip_status": "patented",
+      "patent_number": "IN-2022-0991",
+      "ip_owner": "IIT Delhi Innovation Hub",
+      "licensing_availability": "License / Distribution",
+      "geographic_restrictions": "South Asia",
+      "disclosure_level": "Public",
+      "trl_level": 8,
+      "imageUrl": "https://images.unsplash.com/photo-1536633340041-7c74230b201a?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t14",
+      "name": "Smart City Analytics Engine",
+      "stakeholder_id": "s12",
+      "tech_category_id": "Digital Economy",
+      "tech_sub_category_id": "Urban Planning AI",
+      "description": "Real-time traffic and energy optimization platform using multi-modal AI.",
+      "ip_status": "filed",
+      "ip_owner": "Cyberport Hong Kong",
+      "licensing_availability": "SaaS / License",
+      "geographic_restrictions": "Greater China",
+      "disclosure_level": "Public Summary",
+      "trl_level": 7,
+      "imageUrl": "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t15",
+      "name": "Eco-friendly Dye Removal",
+      "stakeholder_id": "s6",
+      "tech_category_id": "Materials",
+      "tech_sub_category_id": "Textile Chemistry",
+      "description": "Chemical-free process for treating textile wastewater using biological agents.",
+      "ip_status": "know-how",
+      "ip_owner": "IIT Delhi Innovation Hub",
+      "licensing_availability": "Joint Venture / License",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Confidential",
+      "trl_level": 5,
+      "imageUrl": "https://images.unsplash.com/photo-1508204855423-63864d1fe639?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t16",
+      "name": "Bamboo Composites for High-rise",
+      "stakeholder_id": "s17",
+      "tech_category_id": "Materials",
+      "description": "Engineered bamboo structural elements that rival steel in tensile strength.",
+      "ip_status": "patented",
+      "trl_level": 6,
+      "imageUrl": "https://images.unsplash.com/photo-1491933382434-500287f9b54b?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t17",
+      "name": "Mobile Soil Testing Lab",
+      "stakeholder_id": "s1",
+      "tech_category_id": "Agriculture",
+      "tech_sub_category_id": "Agri-Diagnostics",
+      "description": "Compact kit for field nutrient analysis with smartphone integration.",
+      "ip_status": "filed",
+      "ip_owner": "Asia-Pacific Centre for Transfer of Technologies (APCTT)",
+      "licensing_availability": "Joint Development",
+      "geographic_restrictions": "APAC",
+      "disclosure_level": "Public",
+      "trl_level": 7,
+      "imageUrl": "https://images.unsplash.com/photo-1581093588401-fbb62a02f120?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t18",
+      "name": "Waste-to-Biofuel Reactor",
+      "stakeholder_id": "s2",
+      "tech_category_id": "Energy",
+      "tech_sub_category_id": "Bioenergy",
+      "description": "Decentralized reactor converting municipal solid waste into high-grade biodiesel.",
+      "ip_status": "patented",
+      "patent_number": "SG-2023-1120",
+      "ip_owner": "GreenFuture Tech Inc.",
+      "licensing_availability": "Equipment Sales / License",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Public Summary",
+      "trl_level": 6,
+      "imageUrl": "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t19",
+      "name": "AR-Assisted Surgery Suite",
+      "stakeholder_id": "s4",
+      "tech_category_id": "Biotechnology",
+      "tech_sub_category_id": "Medical Imaging",
+      "description": "Visualization tools for surgeons using high-fidelity 3D medical imaging overlays.",
+      "ip_status": "filed",
+      "ip_owner": "SNU R&DB Foundation",
+      "licensing_availability": "Software License",
+      "geographic_restrictions": "None",
+      "disclosure_level": "Restricted",
+      "trl_level": 5,
+      "imageUrl": "https://images.unsplash.com/photo-1579154219604-8355ae97e8a0?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "t20",
+      "name": "Modular Desalination Plant",
+      "stakeholder_id": "s15",
+      "tech_category_id": "Water Management",
+      "tech_sub_category_id": "Desalination Systems",
+      "description": "Scaleable solar-powered desalination units for island communities.",
+      "ip_status": "patented",
+      "patent_number": "FJ-2024-0012",
+      "ip_owner": "Pacific Islands Forum",
+      "licensing_availability": "Unit Purchase / Joint Operation",
+      "geographic_restrictions": "Small Island Developing States",
+      "disclosure_level": "Public",
+      "trl_level": 8,
+      "imageUrl": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=1200"
+    }
+  ],
+  "tech_needs": [
+    {
+      "id": "n1",
+      "seeker_id": "s14",
+      "title": "Flood Prediction in Mekong Delta",
+      "description": "We need high-accuracy AI models to forecast Mekong floods with 7-day lead time.",
+      "industry": "Water / Environment",
+      "budget_range": "$50k - $200k",
+      "deadline": "2025-06-30",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n2",
+      "seeker_id": "s19",
+      "title": "Low-cost EV Charging for APAC Cities",
+      "description": "Looking for residential charging solutions that don't overload old electrical grids.",
+      "industry": "Energy",
+      "budget_range": "$20k - $100k",
+      "deadline": "2024-12-31",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n3",
+      "seeker_id": "s18",
+      "title": "AI for Road Safety Monitoring",
+      "description": "Seeking vision-based AI for detecting black spots in rural highway networks.",
+      "industry": "Logistics",
+      "budget_range": "$100k - $300k",
+      "deadline": "2025-01-20",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n4",
+      "seeker_id": "s15",
+      "title": "Waste-to-Energy for Small Islands",
+      "description": "Needs compact systems to handle 5-10 tons of waste daily with energy recovery.",
+      "industry": "Water / Environment",
+      "budget_range": "$500k+",
+      "deadline": "2025-03-15",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n5",
+      "seeker_id": "s12",
+      "title": "Smart Logistics for Vertical Cities",
+      "description": "Seeking drone landing and parcel management for high-rise residential blocks.",
+      "industry": "Logistics",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n6",
+      "seeker_id": "s8",
+      "title": "Alternative to Cobalt in EV Batteries",
+      "description": "Seeking research or IP for cobalt-free high energy density cathodes.",
+      "industry": "Energy",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n7",
+      "seeker_id": "s9",
+      "title": "AI for Indonesian Language Processing",
+      "description": "Looking for advanced local dialect support in customer service automation.",
+      "industry": "Information Technology",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n8",
+      "seeker_id": "s13",
+      "title": "Cold Chain Sensors for Rural Malaysia",
+      "description": "Seeking passive tracking and temp logging for vaccine distribution.",
+      "industry": "Healthcare",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n9",
+      "seeker_id": "s1",
+      "title": "Tech for Carbon Footprint in SMEs",
+      "description": "Seeking easy-to-use software for small companies to track ESG metrics.",
+      "industry": "Water / Environment",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n10",
+      "seeker_id": "s6",
+      "title": "Water Recycling in Textile Mills",
+      "description": "Looking for solutions to reduce fresh water consumption by 50% in dyeing.",
+      "industry": "Manufacturing",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n11",
+      "seeker_id": "s19",
+      "title": "Smart Grid Controllers for Microgrids",
+      "description": "Need software to balance solar/wind and battery for islanded power.",
+      "industry": "Energy",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n12",
+      "seeker_id": "s18",
+      "title": "Last Mile Cooling Solutions",
+      "description": "Seeking non-electric cooling tech for food transport in Thailand.",
+      "industry": "Logistics",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n13",
+      "seeker_id": "s15",
+      "title": "Marine Protected Area Monitoring",
+      "description": "Need satellite/drone data fusion for detecting illegal fishing.",
+      "industry": "Water / Environment",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n14",
+      "seeker_id": "s12",
+      "title": "Privacy Preserving KYC for Fintech",
+      "description": "Seeking zero-knowledge proofs for customer identity verification.",
+      "industry": "Information Technology",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n15",
+      "seeker_id": "s13",
+      "title": "Bioprocess Scaling for Biofuel",
+      "description": "Looking for experts to scale lab algae to pilot production.",
+      "industry": "Energy",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n16",
+      "seeker_id": "s1",
+      "title": "Remote Sensing for Soil Degradation",
+      "description": "Need regional maps for desertification tracking in Gobi desert.",
+      "industry": "Agriculture",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n17",
+      "seeker_id": "s19",
+      "title": "Sustainable Plastics substitute",
+      "description": "Seeking food-safe materials for street food vendors.",
+      "industry": "Manufacturing",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n18",
+      "seeker_id": "s6",
+      "title": "Diagnostic tech for Tropical Diseases",
+      "description": "Seeking rapid tests for Dengue and Zika for rural clinics.",
+      "industry": "Healthcare",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n19",
+      "seeker_id": "s14",
+      "title": "Sustainable Tourism Mgmt tech",
+      "description": "Seeking visitor load balancing for sensitive river ecosystems.",
+      "industry": "Logistics",
+      "status": "open",
+      "createdAt": 1704330250000
+    },
+    {
+      "id": "n20",
+      "seeker_id": "s1",
+      "title": "Regional Innovation Index Dataset",
+      "description": "Seeking data providers for regional tech maturity analysis.",
+      "industry": "Information Technology",
+      "status": "open",
+      "createdAt": 1704330250000
+    }
+  ],
+  "opportunities": [
+    {
+      "id": "o1",
+      "type": "Event",
+      "title": "Regional Tech Transfer Forum 2024",
+      "description": "A gathering of 500+ innovators to discuss the future of regional collaboration.",
+      "stakeholder_id": "s1",
+      "date": "2024-11-15",
+      "imageUrl": "https://images.unsplash.com/photo-1540575861501-7ad05823c9f5?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "o2",
+      "type": "Support",
+      "title": "UNESCAP Innovation Grant",
+      "description": "Grants for circular economy startups in the SE Asia region.",
+      "stakeholder_id": "s1",
+      "date": "2024-09-01"
+    },
+    {
+      "id": "o3",
+      "type": "Tour",
+      "title": "Japan High-Tech Industry Week",
+      "description": "Delegation visit to major TTOs in Tokyo and Kyoto.",
+      "stakeholder_id": "s11",
+      "date": "2024-10-10"
+    },
+    {
+      "id": "o4",
+      "type": "Event",
+      "title": "Blue Economy Summit",
+      "description": "Focusing on sustainable fisheries and ocean energy in the Pacific.",
+      "stakeholder_id": "s15",
+      "date": "2024-12-05",
+      "imageUrl": "https://images.unsplash.com/photo-1498429089284-41f8cf3ffd39?auto=format&fit=crop&q=80&w=1200"
+    },
+    {
+      "id": "o5",
+      "type": "Support",
+      "title": "ADB Tech Acceleration Fund",
+      "description": "Impact investment for climate-resilient agriculture prototypes.",
+      "stakeholder_id": "s10",
+      "date": "2024-08-30"
+    },
+    {
+      "id": "o6",
+      "type": "Service",
+      "title": "IP Valuation Workshop",
+      "description": "Expert training on valuing patents for international licensing.",
+      "stakeholder_id": "s17",
+      "date": "2024-09-22"
+    },
+    {
+      "id": "o7",
+      "type": "Tour",
+      "title": "Cyberport Hong Kong Demo Day",
+      "description": "Showcase of 50+ startups in Fintech and Web3.",
+      "stakeholder_id": "s12",
+      "date": "2024-11-20"
+    },
+    {
+      "id": "o8",
+      "type": "Event",
+      "title": "AgriTech Expo India",
+      "description": "Display of the latest smart farming machinery and AI solutions.",
+      "stakeholder_id": "s6",
+      "date": "2024-10-15"
+    },
+    {
+      "id": "o9",
+      "type": "Support",
+      "title": "Temasek Sustainability Award",
+      "description": "Awarding breakthroughs in carbon capture and green hydrogen.",
+      "stakeholder_id": "s20",
+      "date": "2024-12-20"
+    },
+    {
+      "id": "o10",
+      "type": "Event",
+      "title": "Vietnam Startup Wheel",
+      "description": "Regional startup competition for Southeast Asian teams.",
+      "stakeholder_id": "s19",
+      "date": "2024-11-12"
+    },
+    {
+      "id": "o11",
+      "type": "Tour",
+      "title": "CSIRO Lab Open Day",
+      "description": "Virtual tour of advanced manufacturing facilities in Melbourne.",
+      "stakeholder_id": "s7",
+      "date": "2024-09-15"
+    },
+    {
+      "id": "o12",
+      "type": "Service",
+      "title": "Cross-border Licensing Advisory",
+      "description": "Legal consultations for startups entering the Indian market.",
+      "stakeholder_id": "s1",
+      "date": "2024-08-15"
+    },
+    {
+      "id": "o13",
+      "type": "Event",
+      "title": "K-Tech Global Roadshow",
+      "description": "Korean deep-tech companies seeking partners in the US and Europe.",
+      "stakeholder_id": "s4",
+      "date": "2024-10-05"
+    },
+    {
+      "id": "o14",
+      "type": "Support",
+      "title": "Green Hydrogen Fellowship",
+      "description": "Research funding for PhDs exploring green ammonia production.",
+      "stakeholder_id": "s7",
+      "date": "2025-01-10"
+    },
+    {
+      "id": "o15",
+      "type": "Tour",
+      "title": "Indonesian Digital Economy Visit",
+      "description": "Networking tour for Singaporean VCs in Jakarta.",
+      "stakeholder_id": "s3",
+      "date": "2024-09-10"
+    },
+    {
+      "id": "o16",
+      "type": "Service",
+      "title": "Export Readiness Testing",
+      "description": "Certifying medical devices for intra-regional distribution.",
+      "stakeholder_id": "s13",
+      "date": "2024-12-15"
+    },
+    {
+      "id": "o17",
+      "type": "Event",
+      "title": "Smart City Solutions Forum",
+      "description": "Gathering of Mayors and City CTOs in Bangkok.",
+      "stakeholder_id": "s18",
+      "date": "2024-11-30"
+    },
+    {
+      "id": "o18",
+      "type": "Support",
+      "title": "Mekong Delta Impact Prize",
+      "description": "Recognizing innovations in brackish water agriculture.",
+      "stakeholder_id": "s14",
+      "date": "2025-02-15"
+    },
+    {
+      "id": "o19",
+      "type": "Tour",
+      "title": "Bangkok Innovation Hub Networking Night",
+      "description": "Connect with top 20 Thai hardware startups.",
+      "stakeholder_id": "s19",
+      "date": "2024-08-25"
+    },
+    {
+      "id": "o20",
+      "type": "Event",
+      "title": "Global Bio-Future Asia",
+      "description": "Conference on synthetic biology and its ethical frameworks in Asia.",
+      "stakeholder_id": "s5",
+      "date": "2025-03-20"
+    }
+  ],
+  "knowledge_base": [
+    {
+      "id": "k1",
+      "title": "Navigating Cross-Border Tech Licensing",
+      "summary": "A comprehensive guide on legal frameworks for technology transfer between ASEAN countries.",
+      "category": "Legal",
+      "url": "#"
+    }
+  ]
+}

@@ -1,0 +1,712 @@
+
+import React, { useState, useEffect } from 'react';
+import { useConfig } from '../context/ConfigContext';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
+import { VerificationStatus, UserAccount, Technology, Stakeholder, StakeholderRole } from '../types';
+import {
+  ShieldCheck,
+  Settings,
+  Database,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  BarChart3,
+  Cpu,
+  Globe,
+  Search,
+  X,
+  Lock,
+  ChevronRight,
+  Target,
+  Megaphone,
+  Building2,
+  FileText,
+  UserCheck,
+  XCircle,
+  ThumbsUp,
+  ThumbsDown,
+  Clock,
+  ExternalLink,
+  Users
+} from 'lucide-react';
+
+const AdminDashboard: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const config = useConfig();
+
+  const [activeTab, setActiveTab] = useState<'stats' | 'config' | 'stakeholders' | 'verifications' | 'users'>('verifications');
+  const [newItemName, setNewItemName] = useState('');
+  const [addingTo, setAddingTo] = useState<{ key: string, label: string } | null>(null);
+  const [technologies, setTechnologies] = useState<Technology[]>([]);
+  const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
+  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingStakeholder, setEditingStakeholder] = useState<Stakeholder | null>(null);
+  const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
+
+  // Security check & Data fetch
+  useEffect(() => {
+    if (!user || !user.isAdmin) {
+      navigate('/dashboard');
+      return;
+    }
+
+    const fetchData = async () => {
+      try {
+        const [t, s, u] = await Promise.all([
+          apiService.getTechnologies(),
+          apiService.getStakeholders(),
+          apiService.getUsers()
+        ]);
+        setTechnologies(t);
+        setStakeholders(s);
+        setUsers(u);
+      } catch (error) {
+        console.error('Error fetching admin data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [user, navigate]);
+
+  if (!user || !user.isAdmin) return null;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+  );
+
+  const handleAddItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemName.trim() || !addingTo) return;
+    config.addItem(addingTo.key, newItemName);
+    setNewItemName('');
+    setAddingTo(null);
+  };
+
+  const handleApproveVerification = async (userToApprove: UserAccount) => {
+    try {
+      await apiService.updateUser(userToApprove.id, {
+        verification_status: VerificationStatus.APPROVED,
+        is_id_verified: true,
+        is_verified: true
+      });
+
+      if (userToApprove.stakeholder_id && userToApprove.stakeholder_id.trim() !== "") {
+        try {
+          await apiService.updateStakeholder(userToApprove.stakeholder_id, {
+            is_verified: true
+          });
+        } catch (stakeholderError) {
+          console.warn('Note: Stakeholder associated with user not found, only user status updated.', stakeholderError);
+        }
+      }
+
+      const [u, s] = await Promise.all([
+        apiService.getUsers(),
+        apiService.getStakeholders()
+      ]);
+      setUsers(u);
+      setStakeholders(s);
+      alert(`${userToApprove.name}'s identity has been successfully approved.`);
+    } catch (error) {
+      console.error('Approval error:', error);
+      alert('Failed to approve identity. Please check your connection to the backend.');
+    }
+  };
+
+  const handleRejectVerification = async (userToReject: UserAccount) => {
+    try {
+      // 1. Update user: revoke all verification flags
+      await apiService.updateUser(userToReject.id, {
+        verification_status: VerificationStatus.REJECTED,
+        is_id_verified: false,
+        is_verified: false
+      });
+
+      // 2. Also revoke stakeholder verification if applicable
+      if (userToReject.stakeholder_id && userToReject.stakeholder_id.trim() !== "") {
+        try {
+          await apiService.updateStakeholder(userToReject.stakeholder_id, {
+            is_verified: false
+          });
+        } catch (stakeholderError) {
+          console.warn('Stakeholder update skipped during revocation.', stakeholderError);
+        }
+      }
+
+      // 3. Refresh lists
+      const [u, s] = await Promise.all([
+        apiService.getUsers(),
+        apiService.getStakeholders()
+      ]);
+      setUsers(u);
+      setStakeholders(s);
+      alert(`${userToReject.name}'s identity has been rejected and organization verification revoked.`);
+    } catch (error) {
+      console.error('Rejection error:', error);
+      alert('Failed to reject identity.');
+    }
+  };
+
+  const handleUpdateStakeholderPermissions = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStakeholder) return;
+    setIsUpdatingPermissions(true);
+    try {
+      // 1. Update the stakeholder record
+      await apiService.updateStakeholder(editingStakeholder.stakeholder_id, editingStakeholder);
+
+      // 2. Sync associated users if we just revoked verification
+      if (!editingStakeholder.is_verified) {
+        const associatedUsers = users.filter(u => u.stakeholder_id === editingStakeholder.stakeholder_id);
+        for (const u of associatedUsers) {
+          await apiService.updateUser(u.id, {
+            is_verified: false,
+            is_id_verified: false,
+            verification_status: VerificationStatus.REJECTED
+          });
+        }
+      } else {
+        // If we manually verified them, ensure their user flags match
+        const associatedUsers = users.filter(u => u.stakeholder_id === editingStakeholder.stakeholder_id);
+        for (const u of associatedUsers) {
+          await apiService.updateUser(u.id, {
+            is_verified: true,
+            is_id_verified: true,
+            verification_status: VerificationStatus.APPROVED
+          });
+        }
+      }
+
+      // 3. Refresh everything
+      const [u, s] = await Promise.all([
+        apiService.getUsers(),
+        apiService.getStakeholders()
+      ]);
+      setUsers(u);
+      setStakeholders(s);
+      setEditingStakeholder(null);
+      alert('Stakeholder permissions and associated user accounts updated successfully.');
+    } catch (error) {
+      console.error('Error updating permissions:', error);
+      alert('Failed to update permissions.');
+    } finally {
+      setIsUpdatingPermissions(false);
+    }
+  };
+
+  const toggleStakeholderRole = (role: StakeholderRole) => {
+    if (!editingStakeholder) return;
+    const currentRoles = editingStakeholder.roles || [];
+    const newRoles = currentRoles.includes(role)
+      ? currentRoles.filter(r => r !== role)
+      : [...currentRoles, role];
+    setEditingStakeholder({ ...editingStakeholder, roles: newRoles });
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    try {
+      await apiService.deleteUser(userId);
+      setUsers(users.filter(u => u.id !== userId));
+      alert('User deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Failed to delete user.');
+    }
+  };
+
+  const handleToggleAdmin = async (u: UserAccount) => {
+    try {
+      const updated = await apiService.updateUser(u.id, { isAdmin: !u.isAdmin });
+      setUsers(users.map(user => user.id === u.id ? updated : user));
+      alert(`${u.name}'s administrator privileges have been ${updated.isAdmin ? 'granted' : 'revoked'}.`);
+    } catch (error) {
+      console.error('Error toggling admin:', error);
+      alert('Failed to update admin status.');
+    }
+  };
+
+  const handleViewDocument = (fileName: string) => {
+    // Determine base URL (handles different dev/prod port scenarios)
+    const baseUrl = window.location.origin;
+    // In Vite, public files are at the root
+    const fileUrl = `${baseUrl}/uploads/verifications/${fileName}`;
+
+    // Attempt to open in new tab
+    const win = window.open(fileUrl, '_blank');
+    if (!win) {
+      alert('Pop-up blocked. Please allow pop-ups for this site to view documents.');
+    }
+  };
+
+  const ConfigSection = ({ title, list, listKey, icon: Icon }: { title: string, list: string[], listKey: string, icon?: any }) => (
+    <div className="space-y-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100 group transition-all hover:border-indigo-200">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+          {Icon && <Icon size={12} className="text-indigo-400" />}
+          {title}
+        </h3>
+        <button
+          onClick={() => setAddingTo({ key: listKey, label: title })}
+          className="p-1.5 bg-white border border-slate-200 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-2 scrollbar-hide">
+        {list.map(item => (
+          <div key={item} className="flex items-center justify-between py-2 px-3 bg-white rounded-xl border border-slate-100 group/item hover:border-indigo-100">
+            <span className="text-xs font-bold text-slate-700 capitalize">{item.replace('-', ' ')}</span>
+            <button
+              onClick={() => config.removeItem(listKey, item)}
+              className="text-slate-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-all"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-7xl mx-auto py-10 px-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="px-2 py-0.5 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest rounded">Admin Privilege</span>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{user.name}</span>
+          </div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <ShieldCheck className="text-indigo-600" size={32} /> Platform Governance
+          </h1>
+        </div>
+
+        <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+          {[
+            { id: 'stats', label: 'Insights', icon: BarChart3 },
+            { id: 'config', label: 'Master Data', icon: Database },
+            { id: 'verifications', label: 'Identity Reviews', icon: UserCheck },
+            { id: 'users', label: 'User Directory', icon: Users },
+            { id: 'stakeholders', label: 'Partners', icon: Building2 }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <tab.icon size={14} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-10">
+        {activeTab === 'stats' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-2">
+            {[
+              { label: 'Technologies', value: technologies.length, icon: Cpu, color: 'text-apctt-blue bg-apctt-light' },
+              { label: 'Stakeholders', value: stakeholders.length, icon: Globe, color: 'text-indigo-600 bg-indigo-50' },
+              { label: 'Awaiting Review', value: users.filter(u => u.verification_status === VerificationStatus.PENDING).length, icon: AlertCircle, color: 'text-amber-600 bg-amber-50' },
+              { label: 'Regional Coverage', value: `${new Set(stakeholders.map(s => s.legal_address.split(',').pop()?.trim())).size}+`, icon: Target, color: 'text-emerald-600 bg-emerald-50' },
+            ].map((stat, i) => (
+              <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm transition-all hover:shadow-xl group">
+                <div className={`inline-flex p-3 rounded-2xl mb-4 transition-transform group-hover:scale-110 ${stat.color}`}>
+                  <stat.icon size={24} />
+                </div>
+                <div className="text-3xl font-black text-slate-900 mb-1">{stat.value}</div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'config' && (
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2">
+            <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-4 mb-10 border-b pb-8">
+                <div className="p-4 bg-indigo-900 text-white rounded-3xl shadow-xl shadow-indigo-100">
+                  <Database size={28} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 leading-tight">Master Database Entries</h2>
+                  <p className="text-sm text-slate-500">Manage all dynamic lists used throughout the platform forms.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <ConfigSection title="Tech Categories" list={config.techCategories} listKey="category" icon={Cpu} />
+                <ConfigSection title="Industry Sectors" list={config.industries} listKey="industry" icon={Globe} />
+                <ConfigSection title="Funding Modalities" list={config.fundingTypes} listKey="funding" icon={Target} />
+                <ConfigSection title="IP Status Options" list={config.ipStatusTypes} listKey="ip" icon={ShieldCheck} />
+                <ConfigSection title="Geographic Scopes" list={config.geographicRestrictions} listKey="geo" icon={Globe} />
+                <ConfigSection title="Disclosure Levels" list={config.disclosureLevels} listKey="disclosure" icon={Lock} />
+                <ConfigSection title="Licensing Terms" list={config.licensingAvailabilities} listKey="licensing" icon={ChevronRight} />
+                <ConfigSection title="Opportunity Types" list={config.opportunityTypes} listKey="opportunity" icon={Megaphone} />
+                <ConfigSection title="Org Categories" list={config.stakeholderCategories} listKey="stakeholder" icon={Building2} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'verifications' && (
+          <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+            <div className="p-10 border-b">
+              <h2 className="text-2xl font-black text-slate-900">Pending User Identity Reviews</h2>
+              <p className="text-sm text-slate-500">Review business registration documents to grant Official Partner status.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">
+                  <tr>
+                    <th className="px-10 py-6">Applicant</th>
+                    <th className="px-10 py-6">Organization</th>
+                    <th className="px-10 py-6">Document</th>
+                    <th className="px-10 py-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {users.filter(u => u.verification_status === VerificationStatus.PENDING || u.verification_status === VerificationStatus.UPDATE_PENDING).map(u => (
+                    <tr key={u.id}>
+                      <td className="px-10 py-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-500">
+                            {u.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">{u.name}</p>
+                            <p className="text-[10px] text-slate-400">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6">
+                        <span className="text-xs font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded-lg border">{stakeholders.find(s => s.stakeholder_id === u.stakeholder_id)?.name || 'Independent'}</span>
+                      </td>
+                      <td className="px-10 py-6">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            disabled={!u.id_document_name}
+                            onClick={() => handleViewDocument(u.id_document_name!)}
+                            className={`flex items-center gap-2 text-xs font-bold transition-colors ${u.id_document_name ? 'text-indigo-600 hover:text-indigo-800 hover:underline' : 'text-slate-300 cursor-not-allowed'}`}
+                          >
+                            <FileText size={14} /> {u.id_document_name || '(No file uploaded)'}
+                          </button>
+                          <span className={`text-[8px] font-black uppercase tracking-widest self-start px-1 rounded ${u.verification_status === VerificationStatus.UPDATE_PENDING ? 'bg-amber-50 text-amber-600' : 'bg-apctt-light text-apctt-blue'}`}>
+                            {u.verification_status === VerificationStatus.UPDATE_PENDING ? 'Document Update' : 'New Request'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleApproveVerification(u)}
+                            className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"
+                            title="Approve Identity"
+                          >
+                            <ThumbsUp size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleRejectVerification(u)}
+                            className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"
+                            title="Reject / Request More"
+                          >
+                            <ThumbsDown size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.filter(u => u.verification_status === VerificationStatus.PENDING || u.verification_status === VerificationStatus.UPDATE_PENDING).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-10 py-16 text-center text-slate-400 italic">
+                        No pending identity reviews at this moment.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+            <div className="p-10 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">User Management Console</h2>
+                <p className="text-sm text-slate-500">View and manage all registered users and their privileges.</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <tr>
+                    <th className="px-10 py-6">User Identity</th>
+                    <th className="px-10 py-6">Status</th>
+                    <th className="px-10 py-6">Administrative Level</th>
+                    <th className="px-10 py-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {users.map(u => (
+                    <tr key={u.id} className="group hover:bg-slate-50/80 transition-all">
+                      <td className="px-10 py-8">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 ${u.isAdmin ? 'bg-indigo-900' : 'bg-slate-100'} text-${u.isAdmin ? 'white' : 'slate-500'} rounded-2xl flex items-center justify-center font-black shadow-lg shadow-indigo-100`}>
+                            {u.name.charAt(0)}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 block group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{u.name}</span>
+                            <span className="text-[10px] text-slate-400 font-bold">{u.email}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8">
+                        <div className="flex flex-col gap-1.5">
+                          <span className={`text-[8px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-full inline-block self-start ${u.is_email_verified ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                            {u.is_email_verified ? 'Email Verified' : 'Email Unverified'}
+                          </span>
+                          <span className={`text-[8px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-full inline-block self-start ${u.is_id_verified ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>
+                            {u.is_id_verified ? 'ID Verified' : 'ID Not Verified'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck size={16} className={u.isAdmin ? 'text-indigo-600' : 'text-slate-300'} />
+                          <span className={`text-xs font-black uppercase tracking-widest ${u.isAdmin ? 'text-indigo-600' : 'text-slate-400'}`}>
+                            {u.isAdmin ? 'Administrator' : 'Standard User'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            onClick={() => handleToggleAdmin(u)}
+                            className={`p-2 rounded-xl transition-all ${u.isAdmin ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                            title={u.isAdmin ? "Revoke Admin" : "Grant Admin"}
+                          >
+                            <Lock size={18} />
+                          </button>
+                          <button
+                            disabled={u.id === user.id}
+                            onClick={() => handleDeleteUser(u.id)}
+                            className={`p-2 rounded-xl transition-all ${u.id === user.id ? 'bg-slate-50 text-slate-200 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'}`}
+                            title="Delete User"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'stakeholders' && (
+          <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+            <div className="p-10 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">Partner Directory</h2>
+                <p className="text-sm text-slate-500">Authorized review of regional stakeholder credentials.</p>
+              </div>
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search network..."
+                  className="w-full pl-12 pr-6 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <tr>
+                    <th className="px-10 py-6">Organization Identity</th>
+                    <th className="px-10 py-6">Sector</th>
+                    <th className="px-10 py-6">Verification</th>
+                    <th className="px-10 py-6 text-right">Administrative Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {stakeholders.map(s => (
+                    <tr key={s.stakeholder_id} className="group hover:bg-slate-50/80 transition-all">
+                      <td className="px-10 py-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-indigo-900 text-white rounded-2xl flex items-center justify-center font-black shadow-lg shadow-indigo-100">
+                            {s.name.charAt(0)}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 block group-hover:text-indigo-600 transition-colors">{s.name}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">{s.legal_document_id}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8">
+                        <span className="text-xs font-bold text-slate-600 px-3 py-1 bg-white border border-slate-200 rounded-lg">{s.category}</span>
+                      </td>
+                      <td className="px-10 py-8">
+                        {s.is_verified ? (
+                          <div className="flex items-center gap-2 text-emerald-600">
+                            <CheckCircle2 size={16} />
+                            <span className="text-xs font-black uppercase tracking-widest">Verified Partner</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-amber-500 animate-pulse">
+                            <AlertCircle size={16} />
+                            <span className="text-xs font-black uppercase tracking-widest">Unverified</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-10 py-8 text-right">
+                        <button
+                          onClick={() => setEditingStakeholder(s)}
+                          className="inline-flex items-center gap-1 text-indigo-600 font-black uppercase text-[10px] tracking-widest hover:underline"
+                        >
+                          Modify Permissions <ChevronRight size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modals section */}
+      {editingStakeholder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-10 border-b flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 leading-none">Administrative Access</h3>
+                <p className="text-xs text-slate-500 mt-2">Managing permissions for <span className="font-bold text-indigo-600">{editingStakeholder.name}</span></p>
+              </div>
+              <button onClick={() => setEditingStakeholder(null)} className="p-3 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-2xl transition-all">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateStakeholderPermissions} className="p-10 space-y-8">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Verification Override</label>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditingStakeholder({ ...editingStakeholder, is_verified: true })}
+                    className={`flex-grow py-4 rounded-2xl border-2 font-bold transition-all ${editingStakeholder.is_verified ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-slate-50 text-slate-400'}`}
+                  >
+                    Verified Partner
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingStakeholder({ ...editingStakeholder, is_verified: false })}
+                    className={`flex-grow py-4 rounded-2xl border-2 font-bold transition-all ${!editingStakeholder.is_verified ? 'border-red-600 bg-red-50 text-red-700' : 'border-slate-100 bg-slate-50 text-slate-400'}`}
+                  >
+                    Unverified
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Roles</label>
+                <div className="flex flex-wrap gap-3">
+                  {(['Provider', 'Seeker', 'Investor'] as StakeholderRole[]).map(role => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => toggleStakeholderRole(role)}
+                      className={`px-4 py-2 rounded-xl border-2 font-bold text-xs transition-all ${editingStakeholder.roles?.includes(role) ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-100 bg-slate-50 text-slate-400'}`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingStakeholder(null)}
+                  className="flex-grow py-4 text-sm font-black text-slate-500 hover:bg-slate-50 rounded-[1.5rem] transition-all uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingPermissions}
+                  className="flex-grow bg-indigo-600 text-white py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center"
+                >
+                  {isUpdatingPermissions ? <Clock className="animate-spin" size={16} /> : 'Apply Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {addingTo && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-10 border-b flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 leading-none">Add Master Entry</h3>
+                <p className="text-xs text-slate-500 mt-2">New item for <span className="font-bold text-indigo-600">{addingTo.label}</span></p>
+              </div>
+              <button onClick={() => setAddingTo(null)} className="p-3 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-2xl transition-all">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleAddItem} className="p-10 space-y-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">New Item Name</label>
+                <input
+                  autoFocus
+                  required
+                  type="text"
+                  className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] focus:outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-500 text-lg font-bold text-slate-800"
+                  placeholder="Enter name..."
+                  value={newItemName}
+                  onChange={e => setNewItemName(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setAddingTo(null)}
+                  className="flex-grow py-5 text-sm font-black text-slate-500 hover:bg-slate-50 rounded-[1.5rem] transition-all uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-grow bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95"
+                >
+                  Confirm Entry
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdminDashboard;
