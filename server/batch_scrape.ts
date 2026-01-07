@@ -8,33 +8,49 @@ dotenv.config();
 
 const CSIR_URL = 'https://techindiacsir.anusandhan.net/online/Control.do';
 
+let sessionCookie = '';
+
+async function getSession() {
+    try {
+        const response = await axios.get('https://techindiacsir.anusandhan.net/online/Control.do?_tech=');
+        const cookies = response.headers['set-cookie'];
+        if (cookies) {
+            sessionCookie = cookies[0].split(';')[0];
+            console.log('🍪 Obtained session cookie:', sessionCookie);
+        }
+    } catch (err: any) {
+        console.error('❌ Failed to get session:', err.message);
+    }
+}
+
 async function scrapeTechDetail(techId: string) {
     try {
-        const form = new FormData();
-        form.append('_tech', '');
-        form.append('techId', techId);
-        form.append('methodName', 'displayTechDetail');
+        if (!sessionCookie) await getSession();
 
-        const response = await axios.post(CSIR_URL, form, {
+        const params = new URLSearchParams();
+        params.append('tech_id', techId);
+        params.append('_techprf', '');
+
+        const response = await axios.post(CSIR_URL, params.toString(), {
             headers: {
-                ...form.getHeaders(),
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Cookie': sessionCookie,
+                'Referer': 'https://techindiacsir.anusandhan.net/online/Control.do?_tech=',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             },
-            timeout: 10000 // 10s timeout
+            timeout: 10000
         });
 
         const $ = cheerio.load(response.data);
-
         const title = $('.panel-heading h3').text().trim();
         if (!title) return null;
 
         const rows = $('.panel-body table tr');
-
         let data: any = { id: techId, title };
 
         rows.each((_, row) => {
             const label = $(row).find('td').first().text().trim().toLowerCase();
             const value = $(row).find('td').last().text().trim();
-
             if (label.includes('value proposition')) data.valueProposition = value;
             if (label.includes('application')) data.application = value;
             if (label.includes('advantages')) data.advantages = value;
@@ -43,15 +59,13 @@ async function scrapeTechDetail(techId: string) {
             if (label.includes('patent')) data.patent = value;
         });
 
-        // Extract Lab Name and Contact from sidebar
         const labName = $('.panel.panel-default').last().find('.panel-heading h3').text().trim();
         const email = $('.panel.panel-default').last().find('a[href^="mailto:"]').text().trim();
-
         data.labName = labName || 'Unknown CSIR Lab';
         data.email = email || 'info@csir.res.in';
 
         return data;
-    } catch (err) {
+    } catch (err: any) {
         console.error(`Failed to scrape ${techId}:`, err.message);
         return null;
     }
@@ -62,19 +76,39 @@ async function startMigration() {
 
     console.log(`🚀 Starting migration for ${allIds.length} records...`);
 
-    // Batch size control
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < allIds.length; i += BATCH_SIZE) {
-        const batch = allIds.slice(i, i + BATCH_SIZE);
-        console.log(`📦 Processing batch ${i / BATCH_SIZE + 1} / ${Math.ceil(allIds.length / BATCH_SIZE)}...`);
+    // Fetch existing IDs to skip
+    console.log('🔍 Checking database for existing records...');
+    const existingTechs = await query('SELECT id FROM technologies');
+    const existingIds = new Set(existingTechs.rows.map(r => r.id));
+    console.log(`⏭️ Found ${existingIds.size} records in DB. Skipping already imported records.`);
 
-        await Promise.all(batch.map(async (id) => {
+    const remainingIds = allIds.filter(id => !existingIds.has(id));
+    console.log(`📝 Remaining to process: ${remainingIds.length}`);
+
+    const CHUNK_SIZE = 20;
+    for (let i = 0; i < remainingIds.length; i += CHUNK_SIZE) {
+        const chunk = remainingIds.slice(i, i + CHUNK_SIZE);
+        const chunkNum = Math.floor(i / CHUNK_SIZE) + 1;
+        const totalChunks = Math.ceil(remainingIds.length / CHUNK_SIZE);
+
+        console.log(`\n📦 Processing Chunk ${chunkNum} / ${totalChunks}...`);
+
+        for (const id of chunk) {
             console.log(`🔍 Scraping ${id}...`);
-            const details = await scrapeTechDetail(id);
+            let details: any = null;
+            let retries = 2;
+
+            while (retries > 0 && !details) {
+                details = await scrapeTechDetail(id);
+                if (!details) {
+                    retries--;
+                    console.log(`⚠️ Retry ${id} (${retries} left)...`);
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+                }
+            }
 
             if (details) {
                 try {
-                    // 1. Ensure Lab exists as Stakeholder
                     const stakeholderId = `lab_${details.labName.replace(/[^\w]/g, '_').toLowerCase()}`;
                     await query(`
             INSERT INTO stakeholders (stakeholder_id, name, category, website, contact_email, is_verified, roles)
@@ -82,7 +116,6 @@ async function startMigration() {
             ON CONFLICT (stakeholder_id) DO UPDATE SET name = EXCLUDED.name
           `, [stakeholderId, details.labName, 'Research Institution', '', details.email, true, JSON.stringify(['Provider'])]);
 
-                    // 2. Insert Technology
                     const trlMatch = details.trl.match(/\d+/);
                     const trlLevel = trlMatch ? parseInt(trlMatch[0]) : 1;
 
@@ -94,28 +127,33 @@ async function startMigration() {
               description = EXCLUDED.description,
               trl_level = EXCLUDED.trl_level
           `, [
-                        id,
-                        details.title,
-                        stakeholderId,
+                        id, details.title, stakeholderId,
                         details.category ? details.category.split(',')[0].trim() : 'General',
                         details.valueProposition || 'No description available.',
                         details.patent && details.patent !== 'N/A' ? 'patented' : 'know-how',
                         details.patent && details.patent !== 'N/A' ? details.patent : null,
                         trlLevel
                     ]);
-
                     console.log(`✅ Saved ${id}: ${details.title}`);
-                } catch (dbErr) {
+                } catch (dbErr: any) {
                     console.error(`❌ DB Error for ${id}:`, dbErr.message);
                 }
             }
-        }));
 
-        // Small delay between batches to be nice to the server
-        await new Promise(r => setTimeout(r, 1000));
+            // Randomized delay between individual records (1-4 seconds)
+            const delay = 1000 + Math.random() * 3000;
+            await new Promise(r => setTimeout(r, delay));
+        }
+
+        if (i + CHUNK_SIZE < remainingIds.length) {
+            console.log(`\n😴 Chunk ${chunkNum} complete. Cooling down for 5 minutes to avoid blocking...`);
+            await new Promise(r => setTimeout(r, 5 * 60 * 1000));
+            // Reset session after long break
+            sessionCookie = '';
+        }
     }
 
-    console.log('🏁 Full migration complete!');
+    console.log('\n🏁 Full migration complete!');
     process.exit(0);
 }
 

@@ -246,6 +246,39 @@ app.get('/api/stats', async (req: Request, res: Response) => {
     }
 });
 
+// POST import technology
+app.post('/api/technologies/import', async (req: Request, res: Response) => {
+    const { tech, stakeholder } = req.body;
+    try {
+        // 1. Ensure Stakeholder exists
+        await query(`
+            INSERT INTO stakeholders (stakeholder_id, name, category, website, contact_email, is_verified, roles)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (stakeholder_id) DO UPDATE SET name = EXCLUDED.name
+        `, [
+            stakeholder.stakeholder_id, stakeholder.name, stakeholder.category,
+            stakeholder.website || '', stakeholder.contact_email, true, JSON.stringify(['Provider'])
+        ]);
+
+        // 2. Insert Technology
+        await query(`
+            INSERT INTO technologies (id, name, stakeholder_id, tech_category_id, description, ip_status, patent_number, trl_level)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (id) DO UPDATE SET 
+              name = EXCLUDED.name,
+              description = EXCLUDED.description,
+              trl_level = EXCLUDED.trl_level
+        `, [
+            tech.id, tech.name, tech.stakeholder_id, tech.tech_category_id,
+            tech.description, tech.ip_status, tech.patent_number, tech.trl_level
+        ]);
+
+        res.json({ success: true, id: tech.id });
+    } catch (err) {
+        res.status(500).json({ error: (err as Error).message });
+    }
+});
+
 // PUT stakeholder
 app.put('/api/stakeholders/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
