@@ -112,5 +112,27 @@ export const apiService = {
         });
         if (!response.ok) throw new Error('Failed to delete user');
         return true;
+    },
+
+    async getContent() {
+        const response = await fetch(`${API_URL}/content`);
+        if (!response.ok) throw new Error('Failed to fetch content');
+        return response.json();
+    },
+
+    async getAdminContent() {
+        const response = await fetch(`${API_URL}/admin/content`);
+        if (!response.ok) throw new Error('Failed to fetch admin content');
+        return response.json();
+    },
+
+    async updateContent(key: string, content: string) {
+        const response = await fetch(`${API_URL}/content/${key}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        });
+        if (!response.ok) throw new Error('Failed to update content');
+        return response.json();
     }
 };

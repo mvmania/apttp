@@ -38,12 +38,14 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const config = useConfig();
 
-  const [activeTab, setActiveTab] = useState<'stats' | 'config' | 'stakeholders' | 'verifications' | 'users'>('verifications');
+  const [activeTab, setActiveTab] = useState<'stats' | 'config' | 'stakeholders' | 'verifications' | 'users' | 'content'>('verifications');
   const [newItemName, setNewItemName] = useState('');
   const [addingTo, setAddingTo] = useState<{ key: string, label: string } | null>(null);
   const [technologies, setTechnologies] = useState<Technology[]>([]);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [users, setUsers] = useState<UserAccount[]>([]);
+  const [contentList, setContentList] = useState<any[]>([]);
+  const [editingContent, setEditingContent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingStakeholder, setEditingStakeholder] = useState<Stakeholder | null>(null);
   const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
@@ -57,14 +59,16 @@ const AdminDashboard: React.FC = () => {
 
     const fetchData = async () => {
       try {
-        const [t, s, u] = await Promise.all([
+        const [t, s, u, c] = await Promise.all([
           apiService.getTechnologies(),
           apiService.getStakeholders(),
-          apiService.getUsers()
+          apiService.getUsers(),
+          apiService.getAdminContent()
         ]);
         setTechnologies(t);
         setStakeholders(s);
         setUsers(u);
+        setContentList(c);
       } catch (error) {
         console.error('Error fetching admin data:', error);
       } finally {
@@ -201,6 +205,21 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleUpdateContent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContent) return;
+    try {
+      await apiService.updateContent(editingContent.key, editingContent.content);
+      const updatedList = await apiService.getAdminContent();
+      setContentList(updatedList);
+      setEditingContent(null);
+      alert('Content updated successfully.');
+    } catch (error) {
+      console.error('Error updating content:', error);
+      alert('Failed to update content.');
+    }
+  };
+
   const toggleStakeholderRole = (role: StakeholderRole) => {
     if (!editingStakeholder) return;
     const currentRoles = editingStakeholder.roles || [];
@@ -296,7 +315,8 @@ const AdminDashboard: React.FC = () => {
             { id: 'config', label: 'Master Data', icon: Database },
             { id: 'verifications', label: 'Identity Reviews', icon: UserCheck },
             { id: 'users', label: 'User Directory', icon: Users },
-            { id: 'stakeholders', label: 'Partners', icon: Building2 }
+            { id: 'stakeholders', label: 'Partners', icon: Building2 },
+            { id: 'content', label: 'Content Editor', icon: FileText }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -588,7 +608,82 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        {activeTab === 'content' && (
+          <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+            <div className="p-10 border-b">
+              <h2 className="text-2xl font-black text-slate-900">Site Content Editor</h2>
+              <p className="text-sm text-slate-500">Modify text content across the Landing Page, Footer, and About Page.</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {contentList.map(item => (
+                <div key={item.key} className="p-8 hover:bg-slate-50 transition-colors">
+                  <div className="flex justify-between items-start gap-4 mb-4">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-lg mb-1">{item.key}</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.description}</p>
+                    </div>
+                    <button
+                      onClick={() => setEditingContent(item)}
+                      className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-indigo-600 transition-all"
+                    >
+                      Edit Content
+                    </button>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-xl text-sm text-slate-600 font-mono text-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                    {item.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Editing Content Modal */}
+      {editingContent && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-10 border-b flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 leading-none">Edit Content</h3>
+                <p className="text-xs text-slate-500 mt-2">Editing key: <span className="font-bold text-indigo-600 font-mono">{editingContent.key}</span></p>
+              </div>
+              <button onClick={() => setEditingContent(null)} className="p-3 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-2xl transition-all">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateContent} className="p-10 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">HTML Content</label>
+                <textarea
+                  required
+                  rows={8}
+                  className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 text-sm font-mono text-slate-800"
+                  value={editingContent.content}
+                  onChange={e => setEditingContent({ ...editingContent, content: e.target.value })}
+                />
+                <p className="text-[10px] text-slate-400 italic">Supports HTML tags. Be careful with syntax.</p>
+              </div>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingContent(null)}
+                  className="flex-grow py-4 text-sm font-black text-slate-500 hover:bg-slate-50 rounded-[1.5rem] transition-all uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-grow bg-indigo-600 text-white py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modals section */}
       {editingStakeholder && (

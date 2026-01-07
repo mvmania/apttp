@@ -19,8 +19,11 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 
+import { useSiteContent } from '../context/SiteContentContext';
+
 const Landing: React.FC = () => {
   const { opportunities } = useOpportunities();
+  const { content } = useSiteContent();
 
   // Get latest 3 items for each section
   const recentTechs = TECHNOLOGIES.slice(0, 3);
@@ -40,13 +43,14 @@ const Landing: React.FC = () => {
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-apctt-blue/10 border border-apctt-blue/20 rounded-full text-apctt-blue text-xs font-black uppercase tracking-widest mb-8 uppercase tracking-[0.2em]">
               <Sparkles size={14} /> Regional Innovation Gateway
             </div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-8 leading-[1.05]">
-              Accelerating <span className="text-apctt-blue italic">Innovation</span> across Asia-Pacific.
-            </h1>
-            <p className="text-xl text-slate-400 mb-12 leading-relaxed">
-              The official APCTT platform connecting technology providers, seekers, and investors.
-              Bridging the gap between groundbreaking innovation and regional development.
-            </p>
+            <h1
+              className="text-5xl md:text-7xl font-black tracking-tighter mb-8 leading-[1.05]"
+              dangerouslySetInnerHTML={{ __html: content['home_hero_title'] || 'Accelerating <span class="text-apctt-blue italic">Innovation</span> across Asia-Pacific.' }}
+            />
+            <p
+              className="text-xl text-slate-400 mb-12 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: content['home_hero_subtitle'] || 'The official APCTT platform connecting technology providers, seekers, and investors. Bridging the gap between groundbreaking innovation and regional development.' }}
+            />
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 to="/technologies"

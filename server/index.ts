@@ -309,6 +309,42 @@ app.put('/api/stakeholders/:id', async (req: Request, res: Response) => {
     }
 });
 
+// GET site content
+app.get('/api/content', async (req: Request, res: Response) => {
+    try {
+        const result = await query('SELECT * FROM site_content');
+        const contentMap: Record<string, string> = {};
+        result.rows.forEach((row: any) => {
+            contentMap[row.key] = row.content;
+        });
+        res.json(contentMap);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch content' });
+    }
+});
+
+// GET all content details (for admin)
+app.get('/api/admin/content', async (req: Request, res: Response) => {
+    try {
+        const result = await query('SELECT * FROM site_content ORDER BY key');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch content details' });
+    }
+});
+
+// PUT update content
+app.put('/api/content/:key', async (req: Request, res: Response) => {
+    const { key } = req.params;
+    const { content } = req.body;
+    try {
+        await query('UPDATE site_content SET content = $1, last_updated = NOW() WHERE key = $2', [content, key]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to update content' });
+    }
+});
+
 // GET search
 app.get('/api/search', async (req: Request, res: Response) => {
     const q = (req.query.q as string || '').toLowerCase();

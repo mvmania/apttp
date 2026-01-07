@@ -1,7 +1,11 @@
 import React from 'react';
 import { Info, Target, Users, Zap, Globe } from 'lucide-react';
 
+import { useSiteContent } from '../context/SiteContentContext';
+
 const About: React.FC = () => {
+  const { content } = useSiteContent();
+
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
       <header className="text-center mb-16">
@@ -37,9 +41,10 @@ const About: React.FC = () => {
             <h2 className="text-2xl font-bold mb-4 flex items-center text-slate-900">
               <Globe className="mr-2 text-red-600" /> Russian House of International Scientific and Technical Cooperation (RH ISTC)
             </h2>
-            <p className="mb-6 text-slate-600 leading-relaxed">
-              The RH ISTC is a premier institution dedicated to fostering international scientific collaboration and technology transfer. Partnering with APCTT, the RH ISTC plays a pivotal role in connecting Russian technologies and scientific expertise with the Asia-Pacific region, driving innovation and sustainable development through cross-border cooperation.
-            </p>
+            <p
+              className="mb-6 text-slate-600 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: content['about_rh_istc_desc'] || 'The RH ISTC is a premier institution dedicated to fostering international scientific collaboration and technology transfer. Partnering with APCTT, the RH ISTC plays a pivotal role in connecting Russian technologies and scientific expertise with the Asia-Pacific region, driving innovation and sustainable development through cross-border cooperation.' }}
+            />
             <div className="flex gap-4">
               <span className="inline-flex items-center text-xs font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full uppercase tracking-wider">
                 Strategic Partner
