@@ -75,9 +75,7 @@ const Landing: React.FC = () => {
             </span>
             <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
               <div className="flex items-center gap-3 group cursor-default">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-xs shadow-lg shadow-blue-900/20">
-                  UN
-                </div>
+                <img src="/apctt_logo.png" alt="APCTT Logo" className="w-10 h-10 object-contain drop-shadow-lg bg-white/90 rounded-lg p-0.5 backdrop-blur-sm shadow-sm" />
                 <div>
                   <div className="text-white font-bold leading-none tracking-tight mb-1">APCTT</div>
                   <div className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">UN ESCAP</div>
@@ -85,9 +83,7 @@ const Landing: React.FC = () => {
               </div>
               <div className="hidden md:block w-px h-8 bg-white/10"></div>
               <div className="flex items-center gap-3 group cursor-default">
-                <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center text-white font-black text-xs shadow-lg shadow-red-900/20">
-                  RH
-                </div>
+                <img src="/rh_istc_logo.webp" alt="RH ISTC Logo" className="w-10 h-10 object-contain drop-shadow-lg bg-white/90 rounded-lg p-0.5 shadow-sm" />
                 <div>
                   <div className="text-white font-bold leading-none tracking-tight mb-1">RH ISTC</div>
                   <div className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Russian House of Int. Sci & Tech Coop</div>
