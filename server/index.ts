@@ -219,7 +219,7 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // All other routes should serve the frontend index.html
-app.get('/*', (req: Request, res: Response) => {
+app.get('/(.*)', (req: Request, res: Response) => {
     // If it starts with /api, we don't serve index.html (fallback for undefined APIs)
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'API route not found' });
