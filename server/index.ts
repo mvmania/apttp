@@ -1,4 +1,6 @@
 import express from 'express';
+import dotenv from 'dotenv';
+dotenv.config({ path: 'server/.env' });
 import type { Request, Response } from 'express';
 import cors from 'cors';
 import fs from 'fs';
@@ -377,7 +379,58 @@ app.use((req: Request, res: Response) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(Number(PORT), '0.0.0.0', () => {
+// Auto-migration for site content
+const initContent = async () => {
+    try {
+        console.log('Initializing site content...');
+        await query(`
+            CREATE TABLE IF NOT EXISTS site_content (
+                key VARCHAR(255) PRIMARY KEY,
+                content TEXT,
+                description TEXT,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        const initialData = [
+            {
+                key: 'home_hero_title',
+                description: 'Main title on the landing page hero section',
+                content: 'Accelerating <span class="text-apctt-blue italic">Innovation</span> across Asia-Pacific.'
+            },
+            {
+                key: 'home_hero_subtitle',
+                description: 'Subtitle text on the landing page hero section',
+                content: 'The official APCTT platform connecting technology providers, seekers, and investors. Bridging the gap between groundbreaking innovation and regional development.'
+            },
+            {
+                key: 'footer_developed_by',
+                description: 'Partnership text in the footer',
+                content: 'Developed in strategic partnership with <span class="text-slate-500 font-bold">RH ISTC</span>.'
+            },
+            {
+                key: 'about_rh_istc_desc',
+                description: 'Description of RH ISTC on the About page',
+                content: 'The RH ISTC is a premier institution dedicated to fostering international scientific collaboration and technology transfer. Partnering with APCTT, the RH ISTC plays a pivotal role in connecting Russian technologies and scientific expertise with the Asia-Pacific region, driving innovation and sustainable development through cross-border cooperation.'
+            }
+        ];
+
+        for (const item of initialData) {
+            await query(`
+                INSERT INTO site_content (key, content, description)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (key) DO NOTHING
+            `, [item.key, item.content, item.description]);
+        }
+        console.log('Site content initialized.');
+    } catch (err) {
+        console.error('Failed to initialize site content:', err);
+    }
+};
+
+// Start server
+app.listen(Number(PORT), '0.0.0.0', async () => {
+    await initContent();
     console.log(`Server is running at http://0.0.0.0:${PORT}`);
     console.log(`Serving static files from: ${distPath}`);
 });
