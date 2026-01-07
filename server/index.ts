@@ -218,12 +218,14 @@ app.get('/health', (req: Request, res: Response) => {
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
-// All other routes should serve the frontend index.html
-app.get('/:any*', (req: Request, res: Response) => {
-    // If it starts with /api, we don't serve index.html (fallback for undefined APIs)
+// Final catch-all middleware for SPA routing
+// This replaces the problematic app.get wildcard route for Express 5 compatibility
+app.use((req: Request, res: Response) => {
+    // If it's an API request that reached here, it's a 404
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'API route not found' });
     }
+    // Otherwise, serve the frontend index.html for SPA routing
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
