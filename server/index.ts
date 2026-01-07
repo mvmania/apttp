@@ -313,6 +313,7 @@ app.put('/api/stakeholders/:id', async (req: Request, res: Response) => {
 
 // GET site content
 app.get('/api/content', async (req: Request, res: Response) => {
+    res.set('Cache-Control', 'no-store'); // Prevent caching
     try {
         const result = await query('SELECT * FROM site_content');
         const contentMap: Record<string, string> = {};
@@ -327,6 +328,7 @@ app.get('/api/content', async (req: Request, res: Response) => {
 
 // GET all content details (for admin)
 app.get('/api/admin/content', async (req: Request, res: Response) => {
+    res.set('Cache-Control', 'no-store');
     try {
         const result = await query('SELECT * FROM site_content ORDER BY key');
         res.json(result.rows);
@@ -339,10 +341,16 @@ app.get('/api/admin/content', async (req: Request, res: Response) => {
 app.put('/api/content/:key', async (req: Request, res: Response) => {
     const { key } = req.params;
     const { content } = req.body;
+    console.log(`📝 Updating content [${key}]: ${content.substring(0, 20)}...`);
     try {
-        await query('UPDATE site_content SET content = $1, last_updated = NOW() WHERE key = $2', [content, key]);
+        const result = await query('UPDATE site_content SET content = $1, last_updated = NOW() WHERE key = $2', [content, key]);
+        if (result.rowCount === 0) {
+            console.warn(`⚠️ Content update failed: Key [${key}] not found.`);
+            return res.status(404).json({ error: 'Content key not found' });
+        }
         res.json({ success: true });
     } catch (err) {
+        console.error('❌ Content update error:', err);
         res.status(500).json({ error: 'Failed to update content' });
     }
 });
