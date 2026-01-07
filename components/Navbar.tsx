@@ -48,7 +48,7 @@ const Navbar: React.FC = () => {
             <div className="h-6 w-px bg-slate-200 mx-2"></div>
 
             <Link
-              to="/register-opportunity"
+              to="/register-tech"
               className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
             >
               <Megaphone size={14} /> Submit Tech
