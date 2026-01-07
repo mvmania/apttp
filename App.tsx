@@ -8,7 +8,27 @@ import { SiteContentProvider } from './context/SiteContentContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Landing from './pages/Landing';
-// ... existing imports ...
+import About from './pages/About';
+import Technologies from './pages/Technologies';
+import TechnologyDetail from './pages/TechnologyDetail';
+import NeedsDirectory from './pages/NeedsDirectory';
+import NeedDetail from './pages/NeedDetail';
+import Stakeholders from './pages/Stakeholders';
+import StakeholderDetail from './pages/StakeholderDetail';
+import Opportunities from './pages/Opportunities';
+import OpportunityDetail from './pages/OpportunityDetail';
+import KnowledgeBase from './pages/KnowledgeBase';
+import Matchmaker from './pages/Matchmaker';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import RegisterTechnology from './pages/RegisterTechnology';
+import RegisterNeed from './pages/RegisterNeed';
+import RegisterOpportunity from './pages/RegisterOpportunity';
+import ChatRoomPage from './pages/ChatRoomPage';
+import AdminDashboard from './pages/AdminDashboard';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 const App: React.FC = () => {
   return (
