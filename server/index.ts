@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 app.use(cors());
@@ -219,7 +219,7 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // All other routes should serve the frontend index.html
-app.get('(.*)', (req: Request, res: Response) => {
+app.get('/*', (req: Request, res: Response) => {
     // If it starts with /api, we don't serve index.html (fallback for undefined APIs)
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'API route not found' });
@@ -227,6 +227,7 @@ app.get('(.*)', (req: Request, res: Response) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`Server is running at http://0.0.0.0:${PORT}`);
+    console.log(`Serving static files from: ${distPath}`);
 });
