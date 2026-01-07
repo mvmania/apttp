@@ -9,20 +9,25 @@ const About: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
       <header className="text-center mb-16">
-        <h1 className="text-4xl font-extrabold text-slate-900 mb-4">About the Platform</h1>
-        <p className="text-xl text-slate-600 leading-relaxed">
-          Bridging the gap between innovation and implementation across the Asia-Pacific region.
-        </p>
+        <h1
+          className="text-4xl font-extrabold text-slate-900 mb-4"
+          dangerouslySetInnerHTML={{ __html: content['about_title'] || 'About the Platform' }}
+        />
+        <p
+          className="text-xl text-slate-600 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: content['about_subtitle'] || 'Bridging the gap between innovation and implementation across the Asia-Pacific region.' }}
+        />
       </header>
 
       <section className="mb-16">
         <div className="bg-blue-600 text-white rounded-2xl p-8 shadow-xl">
           <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <Info className="mr-2" /> Asia-Pacific Centre for Transfer of Technologies (APCTT)
+            <Info className="mr-2" /> <span dangerouslySetInnerHTML={{ __html: content['about_apctt_title'] || 'Asia-Pacific Centre for Transfer of Technologies (APCTT)' }} />
           </h2>
-          <p className="mb-6 opacity-90 leading-relaxed">
-            APCTT is a regional institution of the United Nations Economic and Social Commission for Asia and the Pacific (ESCAP) servicing the Asia-Pacific region. Our focus is on institutional capacity-building for the management of the innovation chain, including technology transfer and adoption of new technologies.
-          </p>
+          <p
+            className="mb-6 opacity-90 leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: content['about_apctt_desc'] || 'APCTT is a regional institution of the United Nations Economic and Social Commission for Asia and the Pacific (ESCAP) servicing the Asia-Pacific region. Our focus is on institutional capacity-building for the management of the innovation chain, including technology transfer and adoption of new technologies.' }}
+          />
           <a
             href="https://apctt.org"
             target="_blank"
@@ -60,18 +65,36 @@ const About: React.FC = () => {
       <div className="grid md:grid-cols-3 gap-8 mb-16">
         <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-100">
           <Target className="w-10 h-10 text-blue-500 mb-4" />
-          <h3 className="text-lg font-bold mb-2">Our Mission</h3>
-          <p className="text-slate-600 text-sm">To facilitate technology transfer and partnership building for sustainable development in Asia and the Pacific.</p>
+          <h3
+            className="text-lg font-bold mb-2"
+            dangerouslySetInnerHTML={{ __html: content['about_mission_title'] || 'Our Mission' }}
+          />
+          <p
+            className="text-slate-600 text-sm"
+            dangerouslySetInnerHTML={{ __html: content['about_mission_desc'] || 'To facilitate technology transfer and partnership building for sustainable development in Asia and the Pacific.' }}
+          />
         </div>
         <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-100">
           <Users className="w-10 h-10 text-green-500 mb-4" />
-          <h3 className="text-lg font-bold mb-2">Connect Stakeholders</h3>
-          <p className="text-slate-600 text-sm">We bring together technology providers, seekers, and investors under one digital roof.</p>
+          <h3
+            className="text-lg font-bold mb-2"
+            dangerouslySetInnerHTML={{ __html: content['about_connect_title'] || 'Connect Stakeholders' }}
+          />
+          <p
+            className="text-slate-600 text-sm"
+            dangerouslySetInnerHTML={{ __html: content['about_connect_desc'] || 'We bring together technology providers, seekers, and investors under one digital roof.' }}
+          />
         </div>
         <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-100">
           <Zap className="w-10 h-10 text-yellow-500 mb-4" />
-          <h3 className="text-lg font-bold mb-2">Drive Innovation</h3>
-          <p className="text-slate-600 text-sm">Empowering regional economies through smart matchmaking and knowledge dissemination.</p>
+          <h3
+            className="text-lg font-bold mb-2"
+            dangerouslySetInnerHTML={{ __html: content['about_drive_title'] || 'Drive Innovation' }}
+          />
+          <p
+            className="text-slate-600 text-sm"
+            dangerouslySetInnerHTML={{ __html: content['about_drive_desc'] || 'Empowering regional economies through smart matchmaking and knowledge dissemination.' }}
+          />
         </div>
       </div>
     </div >

@@ -103,10 +103,10 @@ const Landing: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { label: 'Innovations', value: '1,200+', icon: Cpu, color: 'text-apctt-blue' },
-              { label: 'Countries', value: '45+', icon: Globe, color: 'text-apctt-blue' },
-              { label: 'Partners', value: '800+', icon: Users, color: 'text-emerald-600' },
-              { label: 'Transfers', value: '150+', icon: Zap, color: 'text-amber-600' },
+              { label: content['landing_stats_innovations_label'] || 'Innovations', value: content['landing_stats_innovations_value'] || '1,200+', icon: Cpu, color: 'text-apctt-blue' },
+              { label: content['landing_stats_countries_label'] || 'Countries', value: content['landing_stats_countries_value'] || '45+', icon: Globe, color: 'text-apctt-blue' },
+              { label: content['landing_stats_partners_label'] || 'Partners', value: content['landing_stats_partners_value'] || '800+', icon: Users, color: 'text-emerald-600' },
+              { label: content['landing_stats_transfers_label'] || 'Transfers', value: content['landing_stats_transfers_value'] || '150+', icon: Zap, color: 'text-amber-600' },
             ].map((stat, i) => (
               <div key={i} className="text-center">
                 <div className={`inline-flex p-3 rounded-2xl bg-white shadow-sm mb-4 ${stat.color}`}>
@@ -125,8 +125,14 @@ const Landing: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-end justify-between mb-12">
             <div>
-              <h2 className="text-3xl font-black text-slate-900 mb-2">Recently Added Technologies</h2>
-              <p className="text-slate-500">The latest technical assets ready for licensing and collaboration.</p>
+              <h2
+                className="text-3xl font-black text-slate-900 mb-2"
+                dangerouslySetInnerHTML={{ __html: content['landing_recent_tech_title'] || 'Recently Added Technologies' }}
+              />
+              <p
+                className="text-slate-500"
+                dangerouslySetInnerHTML={{ __html: content['landing_recent_tech_subtitle'] || 'The latest technical assets ready for licensing and collaboration.' }}
+              />
             </div>
             <Link to="/technologies" className="text-blue-600 font-bold flex items-center gap-1 hover:underline">
               View Directory <ChevronRight size={18} />
@@ -177,10 +183,14 @@ const Landing: React.FC = () => {
               <div className="inline-flex p-3 bg-blue-600 text-white rounded-2xl mb-6 shadow-xl shadow-blue-100">
                 <Calendar size={24} />
               </div>
-              <h2 className="text-4xl font-black text-slate-900 mb-6 leading-tight">Latest Network <br /> Updates</h2>
-              <p className="text-slate-500 text-lg leading-relaxed mb-8">
-                Stay informed about regional forums, site tours, and technical support programs organized by our members.
-              </p>
+              <h2
+                className="text-4xl font-black text-slate-900 mb-6 leading-tight"
+                dangerouslySetInnerHTML={{ __html: content['landing_updates_title'] || 'Latest Network <br /> Updates' }}
+              />
+              <p
+                className="text-slate-500 text-lg leading-relaxed mb-8"
+                dangerouslySetInnerHTML={{ __html: content['landing_updates_subtitle'] || 'Stay informed about regional forums, site tours, and technical support programs organized by our members.' }}
+              />
               <Link to="/opportunities" className="bg-slate-900 text-white font-bold px-8 py-4 rounded-2xl inline-flex items-center gap-2 hover:bg-slate-800 transition-all">
                 View All Updates <ArrowRight size={18} />
               </Link>
@@ -224,8 +234,14 @@ const Landing: React.FC = () => {
       {/* Featured Stakeholders */}
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-black text-slate-900 mb-2">Our Verified Network</h2>
-          <p className="text-slate-500 mb-16">Leading organizations driving regional technology transfer.</p>
+          <h2
+            className="text-3xl font-black text-slate-900 mb-2"
+            dangerouslySetInnerHTML={{ __html: content['landing_featured_stakeholders_title'] || 'Our Verified Network' }}
+          />
+          <p
+            className="text-slate-500 mb-16"
+            dangerouslySetInnerHTML={{ __html: content['landing_featured_stakeholders_subtitle'] || 'Leading organizations driving regional technology transfer.' }}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {featuredStakeholders.map(s => (
@@ -263,10 +279,14 @@ const Landing: React.FC = () => {
               <Sparkles size={300} />
             </div>
             <div className="relative z-10 max-w-2xl">
-              <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight">Ready to expand your technical reach?</h2>
-              <p className="text-xl text-blue-100 mb-12 leading-relaxed">
-                Join hundreds of organizations across the Asia-Pacific. Register your technology or post your technical needs today.
-              </p>
+              <h2
+                className="text-4xl md:text-5xl font-black mb-8 leading-tight"
+                dangerouslySetInnerHTML={{ __html: content['landing_cta_title'] || 'Ready to expand your technical reach?' }}
+              />
+              <p
+                className="text-xl text-blue-100 mb-12 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: content['landing_cta_subtitle'] || 'Join hundreds of organizations across the Asia-Pacific. Register your technology or post your technical needs today.' }}
+              />
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/register" className="bg-white text-blue-600 font-bold px-10 py-5 rounded-2xl text-center hover:bg-blue-50 transition-all shadow-xl">
                   Create Partner Account
