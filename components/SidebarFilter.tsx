@@ -20,10 +20,6 @@ export const SidebarFilter: React.FC<SidebarFilterProps> = ({ onReset, activeCou
                         </span>
                     )}
                 </button>
-                <button className="flex-1 py-4 px-6 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center gap-2">
-                    Advanced
-                    <span className="bg-slate-100 text-slate-500 text-[8px] px-1.5 py-0.5 rounded-full uppercase tracking-tighter">New</span>
-                </button>
             </div>
 
             <div className="p-8 space-y-8">

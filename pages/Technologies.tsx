@@ -71,12 +71,25 @@ const Technologies: React.FC = () => {
   const filteredTechs = technologies.filter(t => {
     const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCat = categoryFilters.length === 0 || categoryFilters.includes(t.tech_category_id);
+
+    // Case-insensitive category match
+    const matchesCat = categoryFilters.length === 0 ||
+      categoryFilters.some(filter => filter.toLowerCase() === t.tech_category_id?.toLowerCase());
+
     const matchesTrl = trlFilters.length === 0 || (t.trl_level && trlFilters.some(lvl => t.trl_level && t.trl_level >= lvl));
-    const matchesDisclosure = disclosureFilters.length === 0 || disclosureFilters.includes(t.disclosure_level);
-    const matchesIpStatus = ipStatusFilters.length === 0 || ipStatusFilters.includes(t.ip_status);
-    const matchesLicensing = licensingFilters.length === 0 || licensingFilters.includes(t.licensing_availability);
-    const matchesGeo = geoFilters.length === 0 || geoFilters.includes(t.geographic_restrictions);
+
+    // Case-insensitive matches for dropdowns
+    const matchesDisclosure = disclosureFilters.length === 0 ||
+      disclosureFilters.some(f => f.toLowerCase() === t.disclosure_level?.toLowerCase());
+
+    const matchesIpStatus = ipStatusFilters.length === 0 ||
+      ipStatusFilters.some(f => f.toLowerCase() === t.ip_status?.toLowerCase());
+
+    const matchesLicensing = licensingFilters.length === 0 ||
+      licensingFilters.some(f => f.toLowerCase() === t.licensing_availability?.toLowerCase());
+
+    const matchesGeo = geoFilters.length === 0 ||
+      geoFilters.some(f => f.toLowerCase() === t.geographic_restrictions?.toLowerCase());
 
     return matchesSearch && matchesCat && matchesTrl && matchesDisclosure && matchesIpStatus && matchesLicensing && matchesGeo;
   });

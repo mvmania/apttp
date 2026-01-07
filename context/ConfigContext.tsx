@@ -19,7 +19,7 @@ interface ConfigContextType {
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [techCategories, setTechCategories] = useState<string[]>(['Energy', 'Agriculture', 'Materials', 'Digital Economy', 'Biotechnology', 'Water Management']);
+  const [techCategories, setTechCategories] = useState<string[]>(['Energy', 'Agriculture', 'Materials', 'Digital Economy', 'Biotechnology', 'Water Management', 'CleanTech', 'Healthcare']);
   const [industries, setIndustries] = useState<string[]>(['Energy', 'Water / Environment', 'Agriculture', 'Information Technology', 'Healthcare', 'Manufacturing', 'Logistics']);
   const [fundingTypes, setFundingTypes] = useState<string[]>(['Equity', 'Convertible Notes', 'Venture Debt', 'Grants', 'Crowdfunding']);
   const [ipStatusTypes, setIpStatusTypes] = useState<string[]>(['patented', 'filed', 'know-how', 'open']);

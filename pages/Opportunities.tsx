@@ -35,6 +35,10 @@ const Opportunities: React.FC = () => {
 
   const activeCount = typeFilters.length + (searchTerm !== '' ? 1 : 0);
 
+  const handleSubscribe = () => {
+    alert("You have successfully subscribed to new updates!");
+  };
+
   const filteredOpportunities = opportunities.filter(opp => {
     const matchesSearch = opp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       opp.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -57,9 +61,13 @@ const Opportunities: React.FC = () => {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase leading-none mb-2">Updates & Opportunities</h1>
           <p className="text-slate-500 font-medium tracking-tight">Latest events, tours, services, and support programs from the network.</p>
         </div>
-        <div className="hidden md:flex w-16 h-16 bg-slate-50 border border-slate-100 rounded-[1.5rem] items-center justify-center text-apctt-blue shadow-inner">
-          <Bell className="w-8 h-8 animate-bounce" />
-        </div>
+        <button
+          onClick={handleSubscribe}
+          className="hidden md:flex w-16 h-16 bg-slate-50 border border-slate-100 rounded-[1.5rem] items-center justify-center text-apctt-blue shadow-inner hover:bg-apctt-blue hover:text-white transition-all active:scale-95"
+          title="Subscribe to Updates"
+        >
+          <Bell className="w-8 h-8" />
+        </button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">
