@@ -23,10 +23,11 @@ const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <NavLink to="/" className="flex items-center space-x-3">
-              <img src="/apctt_logo.png" alt="APCTT Logo" className="h-10 w-auto" />
-              <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
-              <span className="font-black text-xl text-slate-900 tracking-tighter hidden sm:block">Connect</span>
+            <NavLink to="/" className="flex items-center space-x-3 group">
+              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 group-hover:scale-105 transition-transform">
+                <Globe size={20} />
+              </div>
+              <span className="font-black text-xl text-slate-900 tracking-tighter hidden sm:block group-hover:text-indigo-600 transition-colors">Connect</span>
             </NavLink>
           </div>
 
@@ -45,6 +46,13 @@ const Navbar: React.FC = () => {
             ))}
 
             <div className="h-6 w-px bg-slate-200 mx-2"></div>
+
+            <Link
+              to="/register-opportunity"
+              className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
+            >
+              <Megaphone size={14} /> Submit Tech
+            </Link>
 
             {isLoggedIn ? (
               <div className="relative">
