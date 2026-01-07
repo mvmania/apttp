@@ -137,6 +137,11 @@ const TechnologyDetail: React.FC = () => {
     return `https://patents.google.com/patent/${cleanNum}`;
   };
 
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    alert('Link copied to clipboard!');
+  };
+
   return (
     <div className="bg-slate-50 min-h-screen pb-20 relative">
       {/* Verification Alert Overlay */}
@@ -181,7 +186,11 @@ const TechnologyDetail: React.FC = () => {
               <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">{tech.name}</h1>
             </div>
             <div className="flex gap-3">
-              <button className="p-3 border border-slate-200 rounded-2xl hover:bg-slate-50 text-slate-600 transition-all shadow-sm">
+              <button
+                onClick={handleShare}
+                className="p-3 border border-slate-200 rounded-2xl hover:bg-slate-50 text-slate-600 transition-all shadow-sm"
+                title="Share this technology"
+              >
                 <Share2 className="w-5 h-5" />
               </button>
               <button

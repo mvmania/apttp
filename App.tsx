@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
 import { OpportunityProvider } from './context/OpportunityContext';
@@ -26,6 +25,8 @@ import RegisterNeed from './pages/RegisterNeed';
 import RegisterOpportunity from './pages/RegisterOpportunity';
 import ChatRoomPage from './pages/ChatRoomPage';
 import AdminDashboard from './pages/AdminDashboard';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 const App: React.FC = () => {
   return (
@@ -58,6 +59,8 @@ const App: React.FC = () => {
                     <Route path="/register-need" element={<RegisterNeed />} />
                     <Route path="/register-opportunity" element={<RegisterOpportunity />} />
                     <Route path="/chat/:chatId" element={<ChatRoomPage />} />
+                    <Route path="/terms" element={<TermsOfService />} />
+                    <Route path="/privacy" element={<PrivacyPolicy />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </main>
@@ -67,11 +70,17 @@ const App: React.FC = () => {
                       <h2 className="text-white font-bold text-xl mb-2">APCTT TechTransfer Connect</h2>
                       <p className="text-sm">© 2024 Asia-Pacific Centre for Transfer of Technologies. All rights reserved.</p>
                     </div>
-                    <div className="flex justify-center sm:justify-end space-x-6 text-sm">
-                      <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                      <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-                      <a href="https://apctt.org/contact-us" className="hover:text-white transition-colors">Contact Us</a>
-                    </div>
+                    <ul className="flex justify-center sm:justify-end space-x-6 text-sm">
+                      <li>
+                        <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                      </li>
+                      <li>
+                        <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+                      </li>
+                      <li>
+                        <a href="https://apctt.org/contact-us" className="hover:text-white transition-colors">Contact Us</a>
+                      </li>
+                    </ul>
                   </div>
                 </footer>
               </div>
