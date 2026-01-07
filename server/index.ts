@@ -279,6 +279,16 @@ app.post('/api/technologies/import', async (req: Request, res: Response) => {
     }
 });
 
+// GET all technology IDs
+app.get('/api/technologies/ids', async (req: Request, res: Response) => {
+    try {
+        const result = await query('SELECT id FROM technologies');
+        res.json(result.rows.map(r => r.id));
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch IDs' });
+    }
+});
+
 // PUT stakeholder
 app.put('/api/stakeholders/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
