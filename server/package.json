@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--loader ts-node/esm' nodemon index.ts",
+    "migrate": "npx tsx migrate.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,9 +13,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@types/pg": "^8.16.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

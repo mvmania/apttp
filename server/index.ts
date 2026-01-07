@@ -4,209 +4,264 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { query } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const DATA_FILE = path.join(__dirname, 'data.json');
 
 app.use(cors());
 app.use(express.json());
 
-// Helper function to read data
-const readData = () => {
-    try {
-        const data = fs.readFileSync(DATA_FILE, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error('Error reading data file:', error);
-        return { stakeholders: [], users: [], technologies: [], tech_needs: [], opportunities: [], knowledge_base: [] };
-    }
-};
-
-// Helper function to write data
-const writeData = (data: any) => {
-    try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
-    } catch (error) {
-        console.error('Error writing data file:', error);
-    }
-};
+// Helper to map DB users to frontend format
+const mapUser = (u: any) => ({
+    ...u,
+    isAdmin: u.is_admin,
+    joinedDate: Number(u.joined_date)
+});
 
 // GET all data
-app.get('/api/data', (req: Request, res: Response) => {
-    const data = readData();
-    res.json(data);
+app.get('/api/data', async (req: Request, res: Response) => {
+    try {
+        const stakeholders = await query('SELECT * FROM stakeholders');
+        const users = await query('SELECT * FROM users');
+        const technologies = await query('SELECT * FROM technologies');
+        const tech_needs = await query('SELECT * FROM tech_needs');
+        const opportunities = await query('SELECT * FROM opportunities');
+
+        res.json({
+            stakeholders: stakeholders.rows,
+            users: users.rows.map(mapUser),
+            technologies: technologies.rows.map(t => ({ ...t, imageUrl: t.image_url })),
+            tech_needs: tech_needs.rows.map(n => ({ ...n, createdAt: Number(n.created_at) })),
+            opportunities: opportunities.rows.map(o => ({ ...o, imageUrl: o.image_url }))
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch data' });
+    }
 });
 
 // GET stakeholders
-app.get('/api/stakeholders', (req: Request, res: Response) => {
-    const data = readData();
-    res.json(data.stakeholders || []);
+app.get('/api/stakeholders', async (req: Request, res: Response) => {
+    try {
+        const result = await query('SELECT * FROM stakeholders');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch stakeholders' });
+    }
 });
 
 // GET technologies
-app.get('/api/technologies', (req: Request, res: Response) => {
-    const data = readData();
-    res.json(data.technologies || []);
+app.get('/api/technologies', async (req: Request, res: Response) => {
+    try {
+        const result = await query('SELECT * FROM technologies');
+        res.json(result.rows.map(t => ({ ...t, imageUrl: t.image_url })));
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch technologies' });
+    }
 });
 
 // POST technology
-app.post('/api/technologies', (req: Request, res: Response) => {
-    const data = readData();
-    const newTech = {
-        ...req.body,
-        id: `t${Date.now()}`
-    };
-    data.technologies = [...(data.technologies || []), newTech];
-    writeData(data);
-    res.status(201).json(newTech);
+app.post('/api/technologies', async (req: Request, res: Response) => {
+    try {
+        const t = req.body;
+        const id = `t${Date.now()}`;
+        await query(`
+            INSERT INTO technologies (
+                id, name, stakeholder_id, tech_category_id, tech_sub_category_id, 
+                description, ip_status, patent_number, ip_owner, 
+                licensing_availability, geographic_restrictions, 
+                disclosure_level, trl_level, image_url
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        `, [
+            id, t.name, t.stakeholder_id, t.tech_category_id, t.tech_sub_category_id,
+            t.description, t.ip_status, t.patent_number, t.ip_owner,
+            t.licensing_availability, t.geographic_restrictions,
+            t.disclosure_level, t.trl_level, t.imageUrl
+        ]);
+        res.status(201).json({ ...t, id });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to create technology' });
+    }
 });
 
 // GET tech needs
-app.get('/api/tech-needs', (req: Request, res: Response) => {
-    const data = readData();
-    res.json(data.tech_needs || []);
+app.get('/api/tech-needs', async (req: Request, res: Response) => {
+    try {
+        const result = await query('SELECT * FROM tech_needs');
+        res.json(result.rows.map(n => ({ ...n, createdAt: Number(n.created_at) })));
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch tech needs' });
+    }
 });
 
 // POST tech need
-app.post('/api/tech-needs', (req: Request, res: Response) => {
-    const data = readData();
-    const newNeed = {
-        ...req.body,
-        id: `n${Date.now()}`,
-        createdAt: Date.now()
-    };
-    data.tech_needs = [...(data.tech_needs || []), newNeed];
-    writeData(data);
-    res.status(201).json(newNeed);
+app.post('/api/tech-needs', async (req: Request, res: Response) => {
+    try {
+        const n = req.body;
+        const id = `n${Date.now()}`;
+        const createdAt = Date.now();
+        await query(`
+            INSERT INTO tech_needs (
+                id, seeker_id, title, description, industry, 
+                budget_range, deadline, status, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [
+            id, n.seeker_id, n.title, n.description, n.industry,
+            n.budget_range, n.deadline, n.status || 'open', createdAt
+        ]);
+        res.status(201).json({ ...n, id, createdAt });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to create tech need' });
+    }
 });
 
 // GET opportunities
-app.get('/api/opportunities', (req: Request, res: Response) => {
-    const data = readData();
-    res.json(data.opportunities || []);
+app.get('/api/opportunities', async (req: Request, res: Response) => {
+    try {
+        const result = await query('SELECT * FROM opportunities');
+        res.json(result.rows.map(o => ({ ...o, imageUrl: o.image_url })));
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch opportunities' });
+    }
 });
 
 // POST opportunity
-app.post('/api/opportunities', (req: Request, res: Response) => {
-    const data = readData();
-    const newOpp = {
-        ...req.body,
-        id: `o${Date.now()}`
-    };
-    data.opportunities = [...(data.opportunities || []), newOpp];
-    writeData(data);
-    res.status(201).json(newOpp);
+app.post('/api/opportunities', async (req: Request, res: Response) => {
+    try {
+        const o = req.body;
+        const id = `o${Date.now()}`;
+        await query(`
+            INSERT INTO opportunities (
+                id, provider_id, title, subtitle, date, 
+                description, type, image_url, link
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [
+            id, o.provider_id, o.title, o.subtitle, o.date,
+            o.description, o.type, o.imageUrl, o.link
+        ]);
+        res.status(201).json({ ...o, id });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to create opportunity' });
+    }
 });
 
 // GET users
-app.get('/api/users', (req: Request, res: Response) => {
-    const data = readData();
-    res.json(data.users || []);
+app.get('/api/users', async (req: Request, res: Response) => {
+    try {
+        const result = await query('SELECT * FROM users');
+        res.json(result.rows.map(mapUser));
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
 });
 
 // POST register
-app.post('/api/register', (req: Request, res: Response) => {
-    const data = readData();
+app.post('/api/register', async (req: Request, res: Response) => {
     const { name, email, password, scenario, orgName, orgCategory, orgWebsite } = req.body;
 
-    // Check if user already exists
-    if (data.users.find((u: any) => u.email === email)) {
-        return res.status(400).json({ error: 'User already exists' });
+    try {
+        const check = await query('SELECT * FROM users WHERE email = $1', [email]);
+        if (check.rows.length > 0) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+
+        let stakeholder_id = '';
+        if ((scenario === 'Organization Representative' || scenario === 'Official Representative') && orgName) {
+            stakeholder_id = `s${Date.now()}`;
+            await query(`
+                INSERT INTO stakeholders (
+                    stakeholder_id, name, category, website, description, is_verified, roles
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [
+                stakeholder_id, orgName, orgCategory, orgWebsite,
+                `Registered via platform by ${name}`, false, JSON.stringify(['Provider'])
+            ]);
+        }
+
+        const id = `u${Date.now()}`;
+        const joinedDate = Date.now();
+        await query(`
+            INSERT INTO users (
+                id, name, email, password, scenario, stakeholder_id, 
+                is_verified, is_email_verified, is_id_verified, 
+                verification_status, is_admin, joined_date
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `, [
+            id, name, email, password, scenario, stakeholder_id,
+            false, false, false, 'None', false, joinedDate
+        ]);
+
+        res.status(201).json({ id, name, email, scenario, stakeholder_id, joinedDate });
+    } catch (err) {
+        res.status(500).json({ error: 'Registration failed' });
     }
-
-    let stakeholder_id = '';
-
-    // If it's an org representative/member, we might need a stakeholder_id
-    // For now, let's create a new stakeholder only for representatives if org info provided
-    if ((scenario === 'Organization Representative' || scenario === 'Official Representative') && orgName) {
-        stakeholder_id = `s${Date.now()}`;
-        const newStakeholder = {
-            stakeholder_id,
-            name: orgName,
-            category: orgCategory,
-            website: orgWebsite,
-            description: `Registered via platform by ${name}`,
-            is_verified: false,
-            key_tech_areas: [],
-            roles: ['Provider']
-        };
-        data.stakeholders = [...(data.stakeholders || []), newStakeholder];
-    }
-
-    const newUser = {
-        id: `u${Date.now()}`,
-        name,
-        email,
-        password,
-        scenario,
-        stakeholder_id,
-        is_verified: false,
-        is_email_verified: false,
-        is_id_verified: false,
-        verification_status: 'None',
-        joinedDate: Date.now()
-    };
-
-    data.users = [...(data.users || []), newUser];
-    writeData(data);
-
-    res.status(201).json(newUser);
 });
 
 // PUT user
-app.put('/api/users/:id', (req: Request, res: Response) => {
+app.put('/api/users/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
-    const data = readData();
-    const index = data.users.findIndex((u: any) => u.id === id);
-    if (index === -1) return res.status(404).json({ error: 'User not found' });
+    const body = req.body;
+    try {
+        // Simple dynamic update for demo purposes
+        const keys = Object.keys(body).filter(k => k !== 'isAdmin' && k !== 'joinedDate');
+        const setClause = keys.map((k, i) => `${k === 'name' ? 'name' : k} = $${i + 2}`).join(', ');
+        const values = keys.map(k => body[k]);
 
-    data.users[index] = { ...data.users[index], ...req.body };
-    writeData(data);
-    res.json(data.users[index]);
+        // Handle mapped fields
+        let mappedUpdate = '';
+        if (body.isAdmin !== undefined) mappedUpdate += `, is_admin = ${body.isAdmin}`;
+
+        await query(`UPDATE users SET ${setClause} ${mappedUpdate} WHERE id = $1`, [id, ...values]);
+        res.json({ message: 'User updated' });
+    } catch (err) {
+        res.status(500).json({ error: 'Update failed' });
+    }
 });
 
 // DELETE user
-app.delete('/api/users/:id', (req: Request, res: Response) => {
+app.delete('/api/users/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
-    const data = readData();
-    const initialCount = data.users.length;
-    data.users = data.users.filter((u: any) => u.id !== id);
-
-    if (data.users.length === initialCount) {
-        return res.status(404).json({ error: 'User not found' });
+    try {
+        await query('DELETE FROM users WHERE id = $1', [id]);
+        res.status(204).send();
+    } catch (err) {
+        res.status(500).json({ error: 'Delete failed' });
     }
-
-    writeData(data);
-    res.status(204).send();
 });
 
 // PUT stakeholder
-app.put('/api/stakeholders/:id', (req: Request, res: Response) => {
+app.put('/api/stakeholders/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
-    const data = readData();
-    const index = data.stakeholders.findIndex((s: any) => s.stakeholder_id === id);
-    if (index === -1) return res.status(404).json({ error: 'Stakeholder not found' });
+    const body = req.body;
+    try {
+        const keys = Object.keys(body).filter(k => !Array.isArray(body[k]) && typeof body[k] !== 'object');
+        const setClause = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+        const values = keys.map(k => body[k]);
 
-    data.stakeholders[index] = { ...data.stakeholders[index], ...req.body };
-    writeData(data);
-    res.json(data.stakeholders[index]);
+        let jsonUpdates = '';
+        if (body.key_tech_areas) jsonUpdates += `, key_tech_areas = '${JSON.stringify(body.key_tech_areas)}'`;
+        if (body.roles) jsonUpdates += `, roles = '${JSON.stringify(body.roles)}'`;
+
+        await query(`UPDATE stakeholders SET ${setClause} ${jsonUpdates} WHERE stakeholder_id = $1`, [id, ...values]);
+        res.json({ message: 'Stakeholder updated' });
+    } catch (err) {
+        res.status(500).json({ error: 'Update failed' });
+    }
 });
 
-// GET search (simple search implementation)
-app.get('/api/search', (req: Request, res: Response) => {
-    const query = (req.query.q as string || '').toLowerCase();
-    const data = readData();
-
-    const results = [
-        ...(data.technologies?.filter((t: any) => t.name.toLowerCase().includes(query) || t.description.toLowerCase().includes(query)) || []),
-        ...(data.stakeholders?.filter((s: any) => s.name.toLowerCase().includes(query) || s.description.toLowerCase().includes(query)) || [])
-    ];
-
-    res.json(results);
+// GET search
+app.get('/api/search', async (req: Request, res: Response) => {
+    const q = (req.query.q as string || '').toLowerCase();
+    try {
+        const techs = await query("SELECT * FROM technologies WHERE LOWER(name) LIKE $1 OR LOWER(description) LIKE $1", [`%${q}%`]);
+        const stakeholders = await query("SELECT * FROM stakeholders WHERE LOWER(name) LIKE $1 OR LOWER(description) LIKE $1", [`%${q}%`]);
+        res.json([...techs.rows, ...stakeholders.rows]);
+    } catch (err) {
+        res.status(500).json({ error: 'Search failed' });
+    }
 });
 
 // Basic health check

@@ -18,5 +18,5 @@ COPY --from=frontend-builder /app/dist ./dist
 # Install tsx to run the TypeScript server directly without a separate build step
 RUN npm install -g tsx
 
-EXPOSE 3001
+EXPOSE 10000
 CMD ["tsx", "server/index.ts"]
