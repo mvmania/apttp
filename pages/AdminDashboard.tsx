@@ -33,10 +33,13 @@ import {
   Users
 } from 'lucide-react';
 
+import { useSiteContent } from '../context/SiteContentContext';
+
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const config = useConfig();
+  const { updateContent } = useSiteContent(); // Use context
 
   const [activeTab, setActiveTab] = useState<'stats' | 'config' | 'stakeholders' | 'verifications' | 'users' | 'content'>('verifications');
   const [newItemName, setNewItemName] = useState('');
@@ -209,7 +212,9 @@ const AdminDashboard: React.FC = () => {
     e.preventDefault();
     if (!editingContent) return;
     try {
-      await apiService.updateContent(editingContent.key, editingContent.content);
+      await updateContent(editingContent.key, editingContent.content); // Use context method
+      // Refresh admin list specifically to get updated descriptions if needed, 
+      // though content is main thing.
       const updatedList = await apiService.getAdminContent();
       setContentList(updatedList);
       setEditingContent(null);
