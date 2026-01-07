@@ -68,7 +68,8 @@ const App: React.FC = () => {
                   <div className="max-w-7xl mx-auto px-4 text-center sm:text-left sm:flex sm:justify-between items-center">
                     <div className="mb-6 sm:mb-0">
                       <h2 className="text-white font-bold text-xl mb-2">APCTT TechTransfer Connect</h2>
-                      <p className="text-sm">© 2024 Asia-Pacific Centre for Transfer of Technologies. All rights reserved.</p>
+                      <p className="text-sm text-slate-500 mb-1">© 2024 Asia-Pacific Centre for Transfer of Technologies.</p>
+                      <p className="text-xs text-slate-600">Developed in strategic partnership with <span className="text-slate-500 font-bold">RH ISTC</span>.</p>
                     </div>
                     <ul className="flex justify-center sm:justify-end space-x-6 text-sm">
                       <li>

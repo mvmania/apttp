@@ -65,6 +65,39 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
+      {/* Strategic Partnership Banner */}
+      <section className="bg-slate-900 border-t border-white/5 relative overflow-hidden">
+        <div className="absolute inset-0 bg-blue-600/5"></div>
+        <div className="max-w-7xl mx-auto px-4 py-6 relative z-10">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-12 text-center md:text-left">
+            <span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
+              Jointly Developed By
+            </span>
+            <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+              <div className="flex items-center gap-3 group cursor-default">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-xs shadow-lg shadow-blue-900/20">
+                  UN
+                </div>
+                <div>
+                  <div className="text-white font-bold leading-none tracking-tight mb-1">APCTT</div>
+                  <div className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">UN ESCAP</div>
+                </div>
+              </div>
+              <div className="hidden md:block w-px h-8 bg-white/10"></div>
+              <div className="flex items-center gap-3 group cursor-default">
+                <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center text-white font-black text-xs shadow-lg shadow-red-900/20">
+                  RH
+                </div>
+                <div>
+                  <div className="text-white font-bold leading-none tracking-tight mb-1">RH ISTC</div>
+                  <div className="text-slate-500 text-[9px] font-bold uppercase tracking-wider">Russian House of Int. Sci & Tech Coop</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Stats Section */}
       <section className="py-20 border-b border-slate-100 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4">
