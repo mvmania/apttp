@@ -232,6 +232,20 @@ app.delete('/api/users/:id', async (req: Request, res: Response) => {
     }
 });
 
+// GET stats
+app.get('/api/stats', async (req: Request, res: Response) => {
+    try {
+        const techCount = await query('SELECT COUNT(*) FROM technologies');
+        const stakeCount = await query('SELECT COUNT(*) FROM stakeholders');
+        res.json({
+            technologies: parseInt(techCount.rows[0].count),
+            stakeholders: parseInt(stakeCount.rows[0].count)
+        });
+    } catch (err) {
+        res.status(500).json({ error: (err as Error).message });
+    }
+});
+
 // PUT stakeholder
 app.put('/api/stakeholders/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
