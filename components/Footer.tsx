@@ -9,7 +9,7 @@ const Footer: React.FC = () => {
         <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
             <div className="max-w-7xl mx-auto px-4 text-center sm:text-left sm:flex sm:justify-between items-center">
                 <div className="mb-6 sm:mb-0">
-                    <h2 className="text-white font-bold text-xl mb-2">APCTT TechTransfer Connect</h2>
+                    <h2 className="text-white font-bold text-xl mb-2">API - Asia Pacific Interface</h2>
                     <p
                         className="text-sm text-slate-500 mb-1"
                         dangerouslySetInnerHTML={{ __html: content['footer_copyright'] || '© 2024 Asia-Pacific Centre for Transfer of Technologies.' }}

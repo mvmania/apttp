@@ -27,7 +27,7 @@ const Navbar: React.FC = () => {
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 group-hover:scale-105 transition-transform">
                 <Globe size={20} />
               </div>
-              <span className="font-black text-xl text-slate-900 tracking-tighter hidden sm:block group-hover:text-indigo-600 transition-colors">Connect</span>
+              <span className="font-black text-xl text-slate-900 tracking-tighter hidden sm:block group-hover:text-indigo-600 transition-colors">API</span>
             </NavLink>
           </div>
 
