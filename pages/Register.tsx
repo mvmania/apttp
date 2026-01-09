@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useConfig } from '../context/ConfigContext';
 import { UserScenario, StakeholderCategory } from '../types';
 import {
   Globe,
@@ -21,6 +22,7 @@ import { apiService } from '../services/apiService';
 
 const Register: React.FC = () => {
   const { login } = useAuth();
+  const config = useConfig();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -31,9 +33,16 @@ const Register: React.FC = () => {
     password: '',
     scenario: UserScenario.ORG_REPRESENTATIVE,
     orgName: '',
-    orgCategory: StakeholderCategory.PRIVATE_COMPANY,
+    orgCategory: '',
     orgWebsite: ''
   });
+
+  // Set default category when config loads
+  React.useEffect(() => {
+    if (config.stakeholderCategories.length > 0 && !formData.orgCategory) {
+      setFormData(prev => ({ ...prev, orgCategory: config.stakeholderCategories[0] }));
+    }
+  }, [config.stakeholderCategories]);
 
   const handleNext = () => {
     if (step === 1 && formData.scenario === UserScenario.INDIVIDUAL) {
@@ -164,11 +173,13 @@ const Register: React.FC = () => {
                   <div className="space-y-2">
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Entity Category</label>
                     <select
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-slate-700"
                       value={formData.orgCategory}
-                      onChange={e => setFormData({ ...formData, orgCategory: e.target.value as any })}
+                      onChange={e => setFormData({ ...formData, orgCategory: e.target.value })}
                     >
-                      {Object.values(StakeholderCategory).map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      {config.stakeholderCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
 

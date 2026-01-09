@@ -42,7 +42,7 @@ export interface InvestorInfo {
 export interface Stakeholder {
   stakeholder_id: string;
   name: string;
-  category: StakeholderCategory;
+  category: string;
   description: string;
   legal_address: string;
   legal_document_id: string;
