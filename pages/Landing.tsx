@@ -79,7 +79,7 @@ const Landing: React.FC = () => {
             </span>
             <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
               <div className="flex items-center gap-3 group cursor-default">
-                <img src="/apctt_escap_logo.png" alt="APCTT ESCAP Logo" className="h-12 w-auto object-contain drop-shadow-sm bg-white rounded-lg p-1" />
+                <img src="/apctt_logo.png" alt="APCTT ESCAP Logo" className="h-10 opacity-90" />
               </div>
               <div className="hidden md:block w-px h-8 bg-white/10"></div>
               <div className="flex items-center gap-3 group cursor-default">
