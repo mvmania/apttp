@@ -14,12 +14,10 @@ const Footer: React.FC = () => {
                         className="text-sm text-slate-500 mb-1"
                         dangerouslySetInnerHTML={{ __html: content['footer_copyright'] || '© 2024 Asia-Pacific Centre for Transfer of Technologies.' }}
                     />
-                    <p
-                        className="text-xs text-slate-600"
-                        dangerouslySetInnerHTML={{
-                            __html: content['footer_developed_by'] || 'Developed in strategic partnership with <span class="text-slate-500 font-bold">RH ISTC</span>.'
-                        }}
-                    />
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-slate-500">Jointly developed by</span>
+                        <img src="/apctt_logo.png" alt="APCTT" className="h-10 w-auto opacity-90" />
+                    </div>
                 </div>
                 <ul className="flex justify-center sm:justify-end space-x-6 text-sm">
                     <li>

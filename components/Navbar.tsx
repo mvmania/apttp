@@ -12,7 +12,7 @@ const Navbar: React.FC = () => {
   const navItems = [
     { name: 'About', path: '/about' },
     { name: 'Technologies', path: '/technologies' },
-    { name: 'Tech Needs', path: '/needs' },
+    { name: 'Needs', path: '/needs' },
     { name: 'Updates', path: '/opportunities' },
     { name: 'Stakeholders', path: '/stakeholders' },
     { name: 'AI Matchmaker', path: '/matchmaker' },
@@ -22,14 +22,13 @@ const Navbar: React.FC = () => {
     <nav className="bg-white border-b sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <NavLink to="/" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 group-hover:scale-105 transition-transform">
-                <Globe size={20} />
-              </div>
-              <span className="font-black text-xl text-slate-900 tracking-tighter hidden sm:block group-hover:text-indigo-600 transition-colors">API</span>
-            </NavLink>
-          </div>
+          <NavLink to="/" className="flex items-center gap-3">
+            <Globe className="text-blue-600" size={24} />
+            <div className="flex flex-col">
+              <span className="font-bold text-lg text-slate-900 tracking-tight leading-none">Asia-Pacific TechBridge</span>
+              <span className="text-[9px] text-blue-600 font-bold uppercase tracking-[0.2em] leading-none">Regional Innovation Hub</span>
+            </div>
+          </NavLink>
 
           <div className="hidden md:flex items-center space-x-4">
             {navItems.map((item) => (
@@ -37,7 +36,7 @@ const Navbar: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `px-3 py-2 rounded-md text-sm font-bold transition-all ${isActive ? 'text-apctt-blue bg-apctt-light shadow-sm' : 'text-slate-600 hover:text-apctt-blue hover:bg-slate-50'
+                  `px-3 py-2 rounded-md text-sm font-bold transition-all whitespace-nowrap ${isActive ? 'text-apctt-blue bg-apctt-light shadow-sm' : 'text-slate-600 hover:text-apctt-blue hover:bg-slate-50'
                   }`
                 }
               >
@@ -49,9 +48,9 @@ const Navbar: React.FC = () => {
 
             <Link
               to="/register-tech"
-              className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
+              className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-2 rounded-xl text-sm font-black uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2 whitespace-nowrap"
             >
-              <Megaphone size={14} /> Submit Tech
+              <Megaphone size={14} /> Submit
             </Link>
 
             {isLoggedIn ? (
