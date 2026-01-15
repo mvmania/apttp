@@ -483,6 +483,23 @@ const initContent = async () => {
     }
 };
 
+// POST chat room (for stats tracking)
+app.post('/api/chat-rooms', async (req: Request, res: Response) => {
+    const { id, created_at } = req.body;
+    try {
+        await query(`
+            INSERT INTO chat_rooms (id, created_at)
+            VALUES ($1, $2)
+            ON CONFLICT (id) DO NOTHING
+        `, [id, created_at || Date.now()]);
+        res.json({ success: true });
+    } catch (err) {
+        // Log but don't fail the request significantly as this is mainly for stats
+        console.error('Failed to record chat room:', err);
+        res.status(500).json({ error: 'Failed to record chat' });
+    }
+});
+
 // Auto-migration for stats support
 const initStatsSchema = async () => {
     try {

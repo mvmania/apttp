@@ -28,9 +28,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const createOrGetChat = (itemId: string, itemName: string, providerId: string, userId: string, type: 'tech' | 'need') => {
-    const existing = chatRooms.find(c => 
-      (type === 'tech' ? c.tech_id === itemId : c.need_id === itemId) && 
-      c.participant_ids.includes(providerId) && 
+    const existing = chatRooms.find(c =>
+      (type === 'tech' ? c.tech_id === itemId : c.need_id === itemId) &&
+      c.participant_ids.includes(providerId) &&
       c.participant_ids.includes(userId)
     );
 
@@ -55,6 +55,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     saveChats([...chatRooms, newChat]);
+
+    // Sync to backend for stats
+    fetch('/api/chat-rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: newChat.id, created_at: newChat.last_updated })
+    }).catch(err => console.error('Failed to sync chat stats:', err));
+
     return newChat.id;
   };
 
