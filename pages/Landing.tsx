@@ -24,6 +24,19 @@ import { useSiteContent } from '../context/SiteContentContext';
 const Landing: React.FC = () => {
   const { opportunities } = useOpportunities();
   const { content } = useSiteContent();
+  const [stats, setStats] = React.useState({
+    innovations: 0,
+    countries: 0,
+    stakeholders: 0,
+    connected: 0
+  });
+
+  React.useEffect(() => {
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error('Failed to fetch stats:', err));
+  }, []);
 
   // Get latest 3 items for each section
   const recentTechs = TECHNOLOGIES.slice(0, 3);
@@ -99,10 +112,10 @@ const Landing: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { label: content['landing_stats_innovations_label'] || 'Innovations', value: content['landing_stats_innovations_value'] || '1,200+', icon: Cpu, color: 'text-apctt-blue' },
-              { label: content['landing_stats_countries_label'] || 'Countries', value: content['landing_stats_countries_value'] || '45+', icon: Globe, color: 'text-apctt-blue' },
-              { label: content['landing_stats_partners_label'] || 'Partners', value: content['landing_stats_partners_value'] || '800+', icon: Users, color: 'text-emerald-600' },
-              { label: content['landing_stats_transfers_label'] || 'Transfers', value: content['landing_stats_transfers_value'] || '150+', icon: Zap, color: 'text-amber-600' },
+              { label: 'Innovations', value: stats.innovations, icon: Cpu, color: 'text-apctt-blue' },
+              { label: 'Countries', value: stats.countries, icon: Globe, color: 'text-apctt-blue' },
+              { label: 'Stakeholders', value: stats.stakeholders, icon: Users, color: 'text-emerald-600' },
+              { label: 'Connected', value: stats.connected, icon: Zap, color: 'text-amber-600' },
             ].map((stat, i) => (
               <div key={i} className="text-center">
                 <div className={`inline-flex p-3 rounded-2xl bg-white shadow-sm mb-4 ${stat.color}`}>

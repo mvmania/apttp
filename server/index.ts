@@ -162,7 +162,7 @@ app.get('/api/users', async (req: Request, res: Response) => {
 
 // POST register
 app.post('/api/register', async (req: Request, res: Response) => {
-    const { name, email, password, scenario, orgName, orgCategory, orgWebsite } = req.body;
+    const { name, email, password, scenario, orgName, orgCategory, orgWebsite, country } = req.body;
 
     try {
         const check = await query('SELECT * FROM users WHERE email = $1', [email]);
@@ -189,11 +189,11 @@ app.post('/api/register', async (req: Request, res: Response) => {
             INSERT INTO users (
                 id, name, email, password, scenario, stakeholder_id, 
                 is_verified, is_email_verified, is_id_verified, 
-                verification_status, is_admin, joined_date
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                verification_status, is_admin, joined_date, country
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         `, [
             id, name, email, password, scenario, stakeholder_id,
-            false, false, false, 'None', false, joinedDate
+            false, false, false, 'None', false, joinedDate, country || null
         ]);
 
         res.status(201).json({ id, name, email, scenario, stakeholder_id, joinedDate });
@@ -237,11 +237,27 @@ app.delete('/api/users/:id', async (req: Request, res: Response) => {
 // GET stats
 app.get('/api/stats', async (req: Request, res: Response) => {
     try {
-        const techCount = await query('SELECT COUNT(*) FROM technologies');
-        const stakeCount = await query('SELECT COUNT(*) FROM stakeholders');
+        const result = await query(`
+            SELECT 
+                (SELECT COUNT(*) FROM technologies) as innovations,
+                (SELECT COUNT(*) FROM stakeholders) as stakeholders,
+                (SELECT COUNT(*) FROM chat_rooms) as connected,
+                (
+                    SELECT COUNT(DISTINCT country) 
+                    FROM (
+                        SELECT country FROM users WHERE country IS NOT NULL
+                        UNION 
+                        SELECT country FROM stakeholders WHERE country IS NOT NULL
+                    ) as c
+                ) as countries
+        `);
+
+        const stats = result.rows[0];
         res.json({
-            technologies: parseInt(techCount.rows[0].count),
-            stakeholders: parseInt(stakeCount.rows[0].count)
+            innovations: parseInt(stats.innovations || '0'),
+            stakeholders: parseInt(stats.stakeholders || '0'),
+            connected: parseInt(stats.connected || '0'),
+            countries: parseInt(stats.countries || '0')
         });
     } catch (err) {
         res.status(500).json({ error: (err as Error).message });
@@ -467,9 +483,46 @@ const initContent = async () => {
     }
 };
 
+// Auto-migration for stats support
+const initStatsSchema = async () => {
+    try {
+        console.log('Initializing stats schema...');
+
+        // 1. Add country to users
+        try {
+            await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT`);
+        } catch (e) { console.log('User country column might exist'); }
+
+        // 2. Add country to stakeholders
+        try {
+            await query(`ALTER TABLE stakeholders ADD COLUMN IF NOT EXISTS country TEXT`);
+        } catch (e) { console.log('Stakeholder country column might exist'); }
+
+        // 3. Create chat_rooms
+        await query(`
+            CREATE TABLE IF NOT EXISTS chat_rooms (
+                id TEXT PRIMARY KEY,
+                created_at BIGINT
+            );
+        `);
+
+        // 4. Backfill (simplified)
+        await query(`UPDATE stakeholders SET country = 'India' WHERE legal_address LIKE '%India%' AND country IS NULL`);
+        await query(`UPDATE stakeholders SET country = 'Japan' WHERE legal_address LIKE '%Japan%' AND country IS NULL`);
+        await query(`UPDATE stakeholders SET country = 'Singapore' WHERE legal_address LIKE '%Singapore%' AND country IS NULL`);
+        await query(`UPDATE stakeholders SET country = 'South Korea' WHERE legal_address LIKE '%Korea%' OR legal_address LIKE '%Seoul%' AND country IS NULL`);
+        await query(`UPDATE stakeholders SET country = 'Thailand' WHERE legal_address LIKE '%Thailand%' OR legal_address LIKE '%Bangkok%' AND country IS NULL`);
+
+        console.log('Stats schema initialized.');
+    } catch (err) {
+        console.error('Failed to initialize stats schema:', err);
+    }
+};
+
 // Start server
 app.listen(Number(PORT), '0.0.0.0', async () => {
     await initContent();
+    await initStatsSchema();
     console.log(`Server is running at http://0.0.0.0:${PORT}`);
     console.log(`Serving static files from: ${distPath}`);
 });
