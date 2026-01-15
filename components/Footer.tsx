@@ -9,14 +9,18 @@ const Footer: React.FC = () => {
         <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
             <div className="max-w-7xl mx-auto px-4 text-center sm:text-left sm:flex sm:justify-between items-center">
                 <div className="mb-6 sm:mb-0">
-                    <h2 className="text-white font-bold text-xl mb-2">API - Asia Pacific Interface</h2>
+                    <h2 className="text-white font-bold text-xl mb-2">Asia-Pacific TechBridge</h2>
                     <p
                         className="text-sm text-slate-500 mb-1"
                         dangerouslySetInnerHTML={{ __html: content['footer_copyright'] || '© 2024 Asia-Pacific Centre for Transfer of Technologies.' }}
                     />
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-4 mt-4">
                         <span className="text-xs text-slate-500">Jointly developed by</span>
-                        <img src="/apctt_logo.png" alt="APCTT" className="h-10 w-auto opacity-90" />
+                        <div className="flex items-center gap-3">
+                            <img src="/apctt_logo.png" alt="APCTT" className="h-8 w-auto opacity-90" />
+                            <div className="w-px h-6 bg-slate-800"></div>
+                            <img src="/rh_istc_logo.webp" alt="RH ISTC" className="h-8 w-auto opacity-90 rounded bg-white/10 p-0.5" />
+                        </div>
                     </div>
                 </div>
                 <ul className="flex justify-center sm:justify-end space-x-6 text-sm">
