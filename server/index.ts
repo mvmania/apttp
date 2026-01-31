@@ -272,7 +272,10 @@ app.post('/api/technologies/import', async (req: Request, res: Response) => {
         await query(`
             INSERT INTO stakeholders (stakeholder_id, name, category, website, contact_email, is_verified, roles)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (stakeholder_id) DO UPDATE SET name = EXCLUDED.name
+            ON CONFLICT (stakeholder_id) DO UPDATE SET 
+                name = EXCLUDED.name,
+                website = COALESCE(NULLIF(EXCLUDED.website, ''), stakeholders.website),
+                contact_email = COALESCE(NULLIF(EXCLUDED.contact_email, ''), stakeholders.contact_email)
         `, [
             stakeholder.stakeholder_id, stakeholder.name, stakeholder.category,
             stakeholder.website || '', stakeholder.contact_email, true, JSON.stringify(['Provider'])
