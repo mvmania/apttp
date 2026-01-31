@@ -260,9 +260,9 @@ const TechnologyDetail: React.FC = () => {
                 <Info className="w-5 h-5 mr-2 text-apctt-blue" /> Technology Overview
               </h2>
               <div className="prose prose-slate max-w-none">
-                <p className="text-slate-600 leading-relaxed text-lg">
+                <div className="text-slate-600 leading-relaxed text-lg whitespace-pre-wrap">
                   {tech.description}
-                </p>
+                </div>
               </div>
 
               <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4">
