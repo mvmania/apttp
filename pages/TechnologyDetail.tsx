@@ -260,8 +260,28 @@ const TechnologyDetail: React.FC = () => {
                 <Info className="w-5 h-5 mr-2 text-apctt-blue" /> Technology Overview
               </h2>
               <div className="prose prose-slate max-w-none">
-                <div className="text-slate-600 leading-relaxed text-lg whitespace-pre-wrap">
-                  {tech.description}
+                <div className="text-slate-600 leading-relaxed text-lg">
+                  {(() => {
+                    const desc = tech.description || '';
+                    // Check if it follows our new structured format
+                    if (desc.includes('VALUE PROPOSITION') || desc.includes('APPLICATIONS') || desc.includes('ADVANTAGES')) {
+                      const sections = desc.split(/(VALUE PROPOSITION|APPLICATIONS|ADVANTAGES)/g);
+                      return sections.map((part, index) => {
+                        if (['VALUE PROPOSITION', 'APPLICATIONS', 'ADVANTAGES'].includes(part.trim())) {
+                          return (
+                            <h3 key={index} className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-8 mb-3 border-b border-slate-100 pb-1">
+                              {part}
+                            </h3>
+                          );
+                        } else if (part.trim()) {
+                          return <p key={index} className="mb-4 whitespace-pre-wrap">{part.trim()}</p>;
+                        }
+                        return null;
+                      });
+                    }
+                    // Fallback for standard descriptions
+                    return <div className="whitespace-pre-wrap">{desc}</div>;
+                  })()}
                 </div>
               </div>
 
