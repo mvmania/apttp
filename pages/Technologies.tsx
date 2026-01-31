@@ -69,8 +69,8 @@ const Technologies: React.FC = () => {
   const activeCount = categoryFilters.length + trlFilters.length + disclosureFilters.length + ipStatusFilters.length + licensingFilters.length + geoFilters.length;
 
   const filteredTechs = technologies.filter(t => {
-    const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (t.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.description || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     // Case-insensitive category match
     const matchesCat = categoryFilters.length === 0 ||
