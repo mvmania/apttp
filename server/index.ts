@@ -288,7 +288,9 @@ app.post('/api/technologies/import', async (req: Request, res: Response) => {
             ON CONFLICT (id) DO UPDATE SET 
               name = EXCLUDED.name,
               description = EXCLUDED.description,
-              trl_level = EXCLUDED.trl_level
+              trl_level = EXCLUDED.trl_level,
+              patent_number = EXCLUDED.patent_number,
+              ip_status = EXCLUDED.ip_status
         `, [
             tech.id, tech.name, tech.stakeholder_id, tech.tech_category_id,
             tech.description, tech.ip_status, tech.patent_number, tech.trl_level
