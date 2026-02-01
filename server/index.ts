@@ -283,17 +283,18 @@ app.post('/api/technologies/import', async (req: Request, res: Response) => {
 
         // 2. Insert Technology
         await query(`
-            INSERT INTO technologies (id, name, stakeholder_id, tech_category_id, description, ip_status, patent_number, trl_level)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO technologies (id, name, stakeholder_id, tech_category_id, description, ip_status, patent_number, trl_level, image_url)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (id) DO UPDATE SET 
               name = EXCLUDED.name,
               description = EXCLUDED.description,
               trl_level = EXCLUDED.trl_level,
               patent_number = EXCLUDED.patent_number,
-              ip_status = EXCLUDED.ip_status
+              ip_status = EXCLUDED.ip_status,
+              image_url = EXCLUDED.image_url
         `, [
             tech.id, tech.name, tech.stakeholder_id, tech.tech_category_id,
-            tech.description, tech.ip_status, tech.patent_number, tech.trl_level
+            tech.description, tech.ip_status, tech.patent_number, tech.trl_level, tech.image_url
         ]);
 
         res.json({ success: true, id: tech.id });
