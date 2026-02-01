@@ -133,7 +133,8 @@ const TechnologyDetail: React.FC = () => {
   };
 
   const getPatentSearchUrl = (patentNum: string) => {
-    return `https://patentscope.wipo.int/search/en/result.jsf?query=${encodeURIComponent(patentNum.trim())}`;
+    const cleanNum = patentNum.replace(/[^a-zA-Z0-9]/g, '');
+    return `https://patents.google.com/patent/${cleanNum}`;
   };
 
   const handleShare = () => {
@@ -339,7 +340,7 @@ const TechnologyDetail: React.FC = () => {
                           rel="noopener noreferrer"
                           className="inline-flex items-center text-xs text-apctt-blue hover:text-apctt-dark font-semibold mt-2 group/patent"
                         >
-                          View on WIPO Patentscope <ExternalLink className="w-3 h-3 ml-1 opacity-50 group-hover/patent:opacity-100 transition-opacity" />
+                          View on Google Patents <ExternalLink className="w-3 h-3 ml-1 opacity-50 group-hover/patent:opacity-100 transition-opacity" />
                         </a>
                       )}
                     </div>
