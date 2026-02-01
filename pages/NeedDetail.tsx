@@ -1,19 +1,20 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { apiService } from '../services/apiService';
 import { useChat } from '../context/ChatContext';
 import { TECH_NEEDS, DEMO_USERS, STAKEHOLDERS } from '../mockData';
-import { 
-  ArrowLeft, 
-  Lightbulb, 
-  Clock, 
-  DollarSign, 
-  Calendar, 
-  ShieldCheck, 
-  MessageSquare, 
-  Building2, 
-  Loader2, 
+import {
+  ArrowLeft,
+  Lightbulb,
+  Clock,
+  DollarSign,
+  Calendar,
+  ShieldCheck,
+  MessageSquare,
+  Building2,
+  Loader2,
   AlertTriangle,
   Info,
   CheckCircle2,
@@ -27,11 +28,44 @@ const NeedDetail: React.FC = () => {
   const { user, isLoggedIn } = useAuth();
   const { createOrGetChat } = useChat();
 
+  const [need, setNeed] = useState<any | null>(null);
+  const [seeker, setSeeker] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showVerificationAlert, setShowVerificationAlert] = useState(false);
 
-  const need = TECH_NEEDS.find(n => n.id === id);
-  const seeker = need ? (DEMO_USERS.find(u => u.id === need.seeker_id) || STAKEHOLDERS.find(s => s.stakeholder_id === need.seeker_id)) : null;
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [needs, users, stakeholders] = await Promise.all([
+          apiService.getTechNeeds(),
+          apiService.getUsers(),
+          apiService.getStakeholders()
+        ]);
+
+        const foundNeed = needs.find((n: any) => n.id === id);
+        if (foundNeed) {
+          setNeed(foundNeed);
+          const foundSeeker = users.find((u: any) => u.id === foundNeed.seeker_id) ||
+            stakeholders.find((s: any) => s.stakeholder_id === foundNeed.seeker_id);
+          setSeeker(foundSeeker || null);
+        }
+      } catch (error) {
+        console.error('Error fetching need detail:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-apctt-blue"></div>
+      </div>
+    );
+  }
 
   if (!need) {
     return (
@@ -60,9 +94,9 @@ const NeedDetail: React.FC = () => {
 
     setTimeout(() => {
       const chatId = createOrGetChat(
-        need.id, 
-        need.title, 
-        need.seeker_id, 
+        need.id,
+        need.title,
+        need.seeker_id,
         user.id,
         'need'
       );
@@ -106,7 +140,7 @@ const NeedDetail: React.FC = () => {
               <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">{need.title}</h1>
             </div>
             <div className="flex gap-3">
-              <button 
+              <button
                 onClick={handleProposeSolution}
                 disabled={isProcessing}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-3 rounded-2xl shadow-xl shadow-indigo-100 flex items-center transition-all group disabled:opacity-50"
@@ -129,7 +163,7 @@ const NeedDetail: React.FC = () => {
               <p className="text-slate-600 leading-relaxed text-lg mb-8">
                 {need.description}
               </p>
-              
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                   <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1 tracking-widest">Industry</span>
@@ -175,7 +209,7 @@ const NeedDetail: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4 pt-6 border-t border-slate-50">
                     <p className="text-xs text-slate-500 leading-relaxed italic">
                       "Contact this seeker if you have a technology solution that aligns with their requirements."
@@ -183,7 +217,7 @@ const NeedDetail: React.FC = () => {
                   </div>
 
                   {seeker.stakeholder_id && (
-                    <Link 
+                    <Link
                       to={`/stakeholders/${seeker.stakeholder_id}`}
                       className="block w-full text-center py-4 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all mt-6"
                     >
