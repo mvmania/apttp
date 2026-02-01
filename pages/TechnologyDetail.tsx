@@ -210,12 +210,12 @@ const TechnologyDetail: React.FC = () => {
           <div className="lg:col-span-2 space-y-8">
 
             {/* Media Gallery Section */}
-            {(tech.imageUrl || tech.videoUrl) && (
+            {(tech.image_url || tech.imageUrl || tech.videoUrl) && (
               <section className="bg-white p-4 rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
                 <div className="relative aspect-video bg-slate-100 rounded-[2rem] overflow-hidden group">
                   {activeMedia === 'image' ? (
                     <img
-                      src={tech.imageUrl || 'https://via.placeholder.com/1200x675'}
+                      src={tech.image_url || tech.imageUrl || 'https://via.placeholder.com/1200x675'}
                       alt={tech.name}
                       className="w-full h-full object-cover"
                     />
@@ -230,7 +230,7 @@ const TechnologyDetail: React.FC = () => {
 
                   {/* Media Toggle Controls */}
                   <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center bg-black/40 backdrop-blur-xl p-1.5 rounded-2xl border border-white/20">
-                    {tech.imageUrl && (
+                    {(tech.image_url || tech.imageUrl) && (
                       <button
                         onClick={() => setActiveMedia('image')}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeMedia === 'image' ? 'bg-white text-slate-900 shadow-lg' : 'text-white hover:bg-white/10'}`}

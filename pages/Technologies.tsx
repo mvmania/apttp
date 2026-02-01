@@ -7,6 +7,7 @@ import { useConfig } from '../context/ConfigContext';
 import { Search, Filter, Tag, Building2, Video, Image as ImageIcon, Gauge, Info, X, ChevronRight } from 'lucide-react';
 import { TRL_DEFINITIONS, getTrlColor } from '../constants';
 import { SidebarFilter, FilterSection, FilterChip, FilterDropdown } from '../components/SidebarFilter';
+import { Pagination } from '../components/Pagination';
 
 const Technologies: React.FC = () => {
   const [technologies, setTechnologies] = useState<Technology[]>([]);
@@ -68,17 +69,22 @@ const Technologies: React.FC = () => {
 
   const activeCount = categoryFilters.length + trlFilters.length + disclosureFilters.length + ipStatusFilters.length + licensingFilters.length + geoFilters.length;
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilters, trlFilters, disclosureFilters, ipStatusFilters, licensingFilters, geoFilters]);
+
   const filteredTechs = technologies.filter(t => {
     const matchesSearch = (t.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (t.description || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Case-insensitive category match
     const matchesCat = categoryFilters.length === 0 ||
       categoryFilters.some(filter => filter.toLowerCase() === t.tech_category_id?.toLowerCase());
 
     const matchesTrl = trlFilters.length === 0 || (t.trl_level && trlFilters.some(lvl => t.trl_level && t.trl_level >= lvl));
 
-    // Case-insensitive matches for dropdowns
     const matchesDisclosure = disclosureFilters.length === 0 ||
       disclosureFilters.some(f => f.toLowerCase() === t.disclosure_level?.toLowerCase());
 
@@ -93,6 +99,9 @@ const Technologies: React.FC = () => {
 
     return matchesSearch && matchesCat && matchesTrl && matchesDisclosure && matchesIpStatus && matchesLicensing && matchesGeo;
   });
+
+  const totalPages = Math.ceil(filteredTechs.length / itemsPerPage);
+  const currentTechs = filteredTechs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (loading) {
     return (
@@ -158,6 +167,9 @@ const Technologies: React.FC = () => {
               <Info size={14} /> What is TRL?
             </button>
           </div>
+        </div>
+        <div className="text-sm font-bold text-slate-500 bg-slate-100 px-4 py-2 rounded-xl">
+          Showing {Math.min(filteredTechs.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filteredTechs.length, currentPage * itemsPerPage)} of {filteredTechs.length}
         </div>
       </div>
 
@@ -251,14 +263,14 @@ const Technologies: React.FC = () => {
         {/* Content Area */}
         <div className="flex-grow">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {filteredTechs.map(tech => {
+            {currentTechs.map(tech => {
               const provider = stakeholders.find(s => s.stakeholder_id === tech.stakeholder_id);
               return (
                 <div key={tech.id} className="bg-white rounded-[2rem] shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden group">
                   <div className="relative h-48 overflow-hidden bg-slate-100">
-                    {tech.imageUrl ? (
+                    {tech.image_url || tech.imageUrl ? (
                       <img
-                        src={tech.imageUrl}
+                        src={tech.image_url || tech.imageUrl}
                         alt={tech.name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
@@ -321,6 +333,12 @@ const Technologies: React.FC = () => {
               );
             })}
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
     </div>

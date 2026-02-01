@@ -88,6 +88,7 @@ export interface Technology {
   geographic_restrictions: string;
   disclosure_level: string;
   imageUrl?: string;
+  image_url?: string;
   videoUrl?: string;
   trl_level?: number;
 }
@@ -130,6 +131,7 @@ export interface Opportunity {
   stakeholder_id: string;
   date: string;
   imageUrl?: string;
+  image_url?: string;
 }
 
 export interface KnowledgeItem {

@@ -6,6 +6,7 @@ import { Calendar, Bell, ArrowUpRight, Megaphone, Clock, Image as ImageIcon, Sea
 import { useAuth } from '../context/AuthContext';
 import { useOpportunities } from '../context/OpportunityContext';
 import { SidebarFilter, FilterSection, FilterChip } from '../components/SidebarFilter';
+import { Pagination } from '../components/Pagination';
 
 const Opportunities: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -39,12 +40,22 @@ const Opportunities: React.FC = () => {
     alert("You have successfully subscribed to new updates!");
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, typeFilters]);
+
   const filteredOpportunities = opportunities.filter(opp => {
     const matchesSearch = opp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       opp.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilters.length === 0 || typeFilters.includes(opp.type);
     return matchesSearch && matchesType;
   });
+
+  const totalPages = Math.ceil(filteredOpportunities.length / itemsPerPage);
+  const currentOpportunities = filteredOpportunities.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (loading) {
     return (
@@ -61,13 +72,18 @@ const Opportunities: React.FC = () => {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase leading-none mb-2">Updates & Opportunities</h1>
           <p className="text-slate-500 font-medium tracking-tight">Latest events, tours, services, and support programs from the network.</p>
         </div>
-        <button
-          onClick={handleSubscribe}
-          className="hidden md:flex w-16 h-16 bg-slate-50 border border-slate-100 rounded-[1.5rem] items-center justify-center text-apctt-blue shadow-inner hover:bg-apctt-blue hover:text-white transition-all active:scale-95"
-          title="Subscribe to Updates"
-        >
-          <Bell className="w-8 h-8" />
-        </button>
+        <div className="hidden md:flex flex-col items-end gap-2">
+          <button
+            onClick={handleSubscribe}
+            className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-[1.5rem] flex items-center justify-center text-apctt-blue shadow-inner hover:bg-apctt-blue hover:text-white transition-all active:scale-95"
+            title="Subscribe to Updates"
+          >
+            <Bell className="w-8 h-8" />
+          </button>
+          <div className="text-sm font-bold text-slate-500 bg-slate-100 px-4 py-2 rounded-xl">
+            Showing {Math.min(filteredOpportunities.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filteredOpportunities.length, currentPage * itemsPerPage)} of {filteredOpportunities.length}
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -108,7 +124,7 @@ const Opportunities: React.FC = () => {
         {/* Content Area */}
         <div className="flex-grow">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {filteredOpportunities.map(opp => {
+            {currentOpportunities.map(opp => {
               const provider = stakeholders.find(s => s.stakeholder_id === opp.stakeholder_id);
               return (
                 <Link
@@ -117,9 +133,9 @@ const Opportunities: React.FC = () => {
                   className="group bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-apctt-blue/30 transition-all duration-300 flex flex-col"
                 >
                   <div className="h-48 overflow-hidden bg-slate-100 relative">
-                    {opp.imageUrl ? (
+                    {opp.image_url || opp.imageUrl ? (
                       <img
-                        src={opp.imageUrl}
+                        src={opp.image_url || opp.imageUrl}
                         alt={opp.title}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
@@ -169,6 +185,12 @@ const Opportunities: React.FC = () => {
               </div>
             )}
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
 
           <div className="mt-16 bg-gradient-to-br from-slate-900 to-apctt-dark rounded-[3rem] p-12 text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-apctt-blue/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
