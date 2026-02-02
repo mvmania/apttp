@@ -116,7 +116,10 @@ async function pushRemote() {
                     patent_number: patentNumber || null,
                     trl_level: trlLevel,
 
-                    image_url: item.image_urls && item.image_urls.length > 0 ? item.image_urls[0] : null
+
+                    image_url: (item.image_urls && item.image_urls.length > 0)
+                        ? item.image_urls[0].replace('.netimg', '.net/online/img').replace('.net/img', '.net/online/img')
+                        : null
                 },
                 stakeholder: {
                     stakeholder_id: stakeholderId,
