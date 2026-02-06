@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DATA_FILE = path.join(__dirname, 'csir_technologies_detailed.json');
-const API_URL = 'https://apttp.onrender.com/api/technologies/import';
+const API_URL = 'http://localhost:10000/api/technologies/import';
 
 async function pushRemote() {
     if (!fs.existsSync(DATA_FILE)) {
