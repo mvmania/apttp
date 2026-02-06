@@ -394,6 +394,32 @@ app.get('/health', (req: Request, res: Response) => {
     res.send('Backend is running');
 });
 
+// Detailed DB health check (For debugging Render connection)
+app.get('/api/health/db', async (req: Request, res: Response) => {
+    try {
+        const start = Date.now();
+        const result = await query('SELECT count(*) FROM technologies');
+        const duration = Date.now() - start;
+        res.json({
+            status: 'ok',
+            message: 'Database Connected Successfully',
+            count: result.rows[0].count,
+            duration_ms: duration,
+            database_url_masked: process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]*@/, ':****@') : 'Not Set'
+        });
+    } catch (err: any) {
+        console.error('DB Connection Check Failed:', err);
+        res.status(500).json({
+            status: 'error',
+            message: 'Database Connection Failed',
+            error_code: err.code,
+            error_details: err.message,
+            error_hostname: err.hostname || 'N/A', // Critical for identifying old internal Render DB
+            database_url_masked: process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:@]*@/, ':****@') : 'Not Set'
+        });
+    }
+});
+
 // Serve static files from the dist directory
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
