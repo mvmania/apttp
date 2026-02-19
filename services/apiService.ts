@@ -1,4 +1,5 @@
-const API_URL = window.location.port === '5173' ? 'http://localhost:3001/api' : '/api';
+const API_URL = 'http://localhost:10000/api';
+
 
 export const apiService = {
     async getStakeholders() {
@@ -136,3 +137,4 @@ export const apiService = {
         return response.json();
     }
 };
+

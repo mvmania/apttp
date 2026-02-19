@@ -1,12 +1,16 @@
+
+import bcrypt from "bcrypt";
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "./utils/jwt.js";
 import express from 'express';
-import dotenv from 'dotenv';
-dotenv.config({ path: 'server/.env' });
 import type { Request, Response } from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { query } from './db.js';
+import { isStrongPassword } from "./utils/validatePassword.js";
+
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -160,9 +164,100 @@ app.get('/api/users', async (req: Request, res: Response) => {
     }
 });
 
+
+ //api/login route with this
+app.post("/api/login", async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+
+  try {
+    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const user = result.rows[0];
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const accessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      role: user.role ?? (user.is_admin ? "admin" : "user"),
+      is_email_verified: Boolean(user.is_email_verified),
+      is_admin: Boolean(user.is_admin),
+    });
+
+    const refreshToken = generateRefreshToken(user.id);
+
+    return res.json({
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role ?? (user.is_admin ? "admin" : "user"),
+        is_email_verified: Boolean(user.is_email_verified),
+        is_admin: Boolean(user.is_admin),
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Login failed" });
+  }
+});
+
+
+// POST refresh token
+// REPLACE your current /api/refresh-token route with this
+app.post("/api/refresh-token", async (req: Request, res: Response) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(401).json({ error: "Refresh token required" });
+  }
+
+  try {
+    const decoded = verifyRefreshToken(refreshToken); // { id: string }
+
+    const result = await query(
+      "SELECT id, email, role, is_email_verified, is_admin FROM users WHERE id = $1",
+      [decoded.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    const user = result.rows[0];
+
+    const newAccessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      role: user.role ?? (user.is_admin ? "admin" : "user"),
+      is_email_verified: Boolean(user.is_email_verified),
+      is_admin: Boolean(user.is_admin),
+    });
+
+    return res.json({ accessToken: newAccessToken });
+  } catch {
+    return res.status(403).json({ error: "Invalid or expired refresh token" });
+  }
+});
+
+
 // POST register
+
 app.post('/api/register', async (req: Request, res: Response) => {
     const { name, email, password, scenario, orgName, orgCategory, orgWebsite, country } = req.body;
+    if (!isStrongPassword(password)) {
+    return res.status(400).json({
+        error: "Password must be minimum 8 characters and include uppercase, lowercase, number and special character."
+    });
+    }
+
+     const hashedPassword = await bcrypt.hash(password, 12);
+
 
     try {
         const check = await query('SELECT * FROM users WHERE email = $1', [email]);
@@ -192,7 +287,7 @@ app.post('/api/register', async (req: Request, res: Response) => {
                 verification_status, is_admin, joined_date, country
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         `, [
-            id, name, email, password, scenario, stakeholder_id,
+            id, name, email, hashedPassword, scenario, stakeholder_id,
             false, false, false, 'None', false, joinedDate, country || null
         ]);
 
