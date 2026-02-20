@@ -1,14 +1,21 @@
 
 import bcrypt from "bcrypt";
+import { createHash, randomUUID } from "crypto";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "./utils/jwt.js";
 import express from 'express';
 import type { Request, Response } from 'express';
 import cors from 'cors';
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { query } from './db.js';
 import { isStrongPassword } from "./utils/validatePassword.js";
+import { securityConfig } from "./config/security.js";
+import { authenticateToken } from "./middleware/authMiddleware.js";
+import { requireAdmin, requireVerifiedUser } from "./middleware/roleMiddleware.js";
+
 
 
 
@@ -18,8 +25,32 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(cors());
+app.set("trust proxy", 1);
+app.use(helmet());
+app.use(cors({
+    origin: true,
+    credentials: true,
+}));
 app.use(express.json());
+
+const globalLimiter = rateLimit({
+    windowMs: securityConfig.rateLimit.windowMs,
+    max: securityConfig.rateLimit.max,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+});
+
+const authLimiterBase = {
+    windowMs: securityConfig.rateLimit.authWindowMs,
+    standardHeaders: "draft-8" as const,
+    legacyHeaders: false,
+};
+
+const loginLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.loginMax });
+const registerLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.registerMax });
+const refreshLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.refreshMax });
+
+app.use("/api", globalLimiter);
 
 // Helper to map DB users to frontend format
 const mapUser = (u: any) => ({
@@ -27,6 +58,107 @@ const mapUser = (u: any) => ({
     isAdmin: u.is_admin,
     joinedDate: Number(u.joined_date)
 });
+
+const parseCookieHeader = (cookieHeader?: string): Record<string, string> => {
+    if (!cookieHeader) return {};
+    return cookieHeader.split(";").reduce<Record<string, string>>((acc, part) => {
+        const [rawKey, ...rest] = part.trim().split("=");
+        if (!rawKey) return acc;
+        acc[rawKey] = decodeURIComponent(rest.join("=") || "");
+        return acc;
+    }, {});
+};
+
+const hashToken = (token: string): string => {
+    return createHash("sha256").update(token).digest("hex");
+};
+
+const parseExpiryToMs = (expiry: string | number | undefined): number => {
+    if (typeof expiry === "number") return expiry * 1000;
+    if (typeof expiry === "string") {
+        const match = expiry.match(/^(\d+)([smhd])$/);
+        if (match) {
+            const value = Number(match[1]);
+            const unit = match[2];
+            if (unit === "s") return value * 1000;
+            if (unit === "m") return value * 60 * 1000;
+            if (unit === "h") return value * 60 * 60 * 1000;
+            if (unit === "d") return value * 24 * 60 * 60 * 1000;
+        }
+    }
+    return 7 * 24 * 60 * 60 * 1000;
+};
+
+const refreshTokenTtlMs = parseExpiryToMs(securityConfig.jwt.refreshExpiry);
+
+const setRefreshCookie = (res: Response, refreshToken: string): void => {
+    const maxAge = Math.max(refreshTokenTtlMs, 60_000);
+    const cookieParts = [
+        `${securityConfig.cookies.refreshTokenName}=${encodeURIComponent(refreshToken)}`,
+        "HttpOnly",
+        `Path=${securityConfig.cookies.path}`,
+        `SameSite=${securityConfig.cookies.sameSite}`,
+        `Max-Age=${Math.floor(maxAge / 1000)}`,
+    ];
+
+    if (securityConfig.cookies.secure) {
+        cookieParts.push("Secure");
+    }
+    if (securityConfig.cookies.domain) {
+        cookieParts.push(`Domain=${securityConfig.cookies.domain}`);
+    }
+
+    res.setHeader("Set-Cookie", cookieParts.join("; "));
+};
+
+const clearRefreshCookie = (res: Response): void => {
+    const cookieParts = [
+        `${securityConfig.cookies.refreshTokenName}=`,
+        "HttpOnly",
+        `Path=${securityConfig.cookies.path}`,
+        `SameSite=${securityConfig.cookies.sameSite}`,
+        "Max-Age=0",
+    ];
+    if (securityConfig.cookies.secure) {
+        cookieParts.push("Secure");
+    }
+    if (securityConfig.cookies.domain) {
+        cookieParts.push(`Domain=${securityConfig.cookies.domain}`);
+    }
+    res.setHeader("Set-Cookie", cookieParts.join("; "));
+};
+
+const getRefreshTokenFromRequest = (req: Request): string | null => {
+    const cookies = parseCookieHeader(req.headers.cookie);
+    const token = cookies[securityConfig.cookies.refreshTokenName];
+    if (!token) return null;
+    return token;
+};
+
+const storeRefreshSession = async (
+    userId: string,
+    jti: string,
+    refreshToken: string,
+    req: Request,
+    replacedByJti: string | null = null
+): Promise<void> => {
+    const tokenHash = hashToken(refreshToken);
+    const expiresAt = new Date(Date.now() + refreshTokenTtlMs);
+    await query(
+        `INSERT INTO user_sessions (id, user_id, jti, token_hash, ip_address, user_agent, expires_at, replaced_by_jti)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+            `sess_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+            userId,
+            jti,
+            tokenHash,
+            req.ip ?? null,
+            req.get("user-agent") ?? null,
+            expiresAt,
+            replacedByJti,
+        ]
+    );
+};
 
 // GET all data
 app.get('/api/data', async (req: Request, res: Response) => {
@@ -70,7 +202,7 @@ app.get('/api/technologies', async (req: Request, res: Response) => {
 });
 
 // POST technology
-app.post('/api/technologies', async (req: Request, res: Response) => {
+app.post('/api/technologies', authenticateToken, requireVerifiedUser, async (req: Request, res: Response) => {
     try {
         const t = req.body;
         const id = `t${Date.now()}`;
@@ -104,7 +236,7 @@ app.get('/api/tech-needs', async (req: Request, res: Response) => {
 });
 
 // POST tech need
-app.post('/api/tech-needs', async (req: Request, res: Response) => {
+app.post('/api/tech-needs', authenticateToken, requireVerifiedUser, async (req: Request, res: Response) => {
     try {
         const n = req.body;
         const id = `n${Date.now()}`;
@@ -135,7 +267,7 @@ app.get('/api/opportunities', async (req: Request, res: Response) => {
 });
 
 // POST opportunity
-app.post('/api/opportunities', async (req: Request, res: Response) => {
+app.post('/api/opportunities', authenticateToken, requireVerifiedUser, async (req: Request, res: Response) => {
     try {
         const o = req.body;
         const id = `o${Date.now()}`;
@@ -166,7 +298,7 @@ app.get('/api/users', async (req: Request, res: Response) => {
 
 
  //api/login route with this
-app.post("/api/login", async (req: Request, res: Response) => {
+app.post("/api/login", loginLimiter, async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
@@ -189,11 +321,13 @@ app.post("/api/login", async (req: Request, res: Response) => {
       is_admin: Boolean(user.is_admin),
     });
 
-    const refreshToken = generateRefreshToken(user.id);
+    const refreshTokenJti = randomUUID();
+    const refreshToken = generateRefreshToken(user.id, refreshTokenJti);
+    await storeRefreshSession(user.id, refreshTokenJti, refreshToken, req);
+    setRefreshCookie(res, refreshToken);
 
     return res.json({
       accessToken,
-      refreshToken,
       user: {
         id: user.id,
         name: user.name,
@@ -210,45 +344,107 @@ app.post("/api/login", async (req: Request, res: Response) => {
 
 
 // POST refresh token
-// REPLACE your current /api/refresh-token route with this
-app.post("/api/refresh-token", async (req: Request, res: Response) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken) {
-    return res.status(401).json({ error: "Refresh token required" });
-  }
-
-  try {
-    const decoded = verifyRefreshToken(refreshToken); // { id: string }
-
-    const result = await query(
-      "SELECT id, email, role, is_email_verified, is_admin FROM users WHERE id = $1",
-      [decoded.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: "User not found" });
+app.post("/api/refresh-token", refreshLimiter, async (req: Request, res: Response) => {
+    const refreshToken = getRefreshTokenFromRequest(req);
+    if (!refreshToken) {
+        return res.status(401).json({ error: "Refresh token required" });
     }
 
-    const user = result.rows[0];
+    try {
+        const decoded = verifyRefreshToken(refreshToken);
+        const tokenHash = hashToken(refreshToken);
 
-    const newAccessToken = generateAccessToken({
-      id: user.id,
-      email: user.email,
-      role: user.role ?? (user.is_admin ? "admin" : "user"),
-      is_email_verified: Boolean(user.is_email_verified),
-      is_admin: Boolean(user.is_admin),
-    });
+        const sessionResult = await query(
+            `SELECT id, token_hash
+             FROM user_sessions
+             WHERE user_id = $1
+               AND jti = $2
+               AND revoked_at IS NULL
+               AND expires_at > NOW()
+             LIMIT 1`,
+            [decoded.id, decoded.jti]
+        );
 
-    return res.json({ accessToken: newAccessToken });
-  } catch {
-    return res.status(403).json({ error: "Invalid or expired refresh token" });
-  }
+        if (sessionResult.rows.length === 0) {
+            clearRefreshCookie(res);
+            return res.status(403).json({ error: "Invalid refresh session" });
+        }
+
+        const session = sessionResult.rows[0];
+        if (session.token_hash !== tokenHash) {
+            await query(
+                "UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL",
+                [session.id]
+            );
+            clearRefreshCookie(res);
+            return res.status(403).json({ error: "Invalid refresh token" });
+        }
+
+        const result = await query(
+            "SELECT id, email, name, role, is_email_verified, is_admin FROM users WHERE id = $1",
+            [decoded.id]
+        );
+
+        if (result.rows.length === 0) {
+            clearRefreshCookie(res);
+            return res.status(401).json({ error: "User not found" });
+        }
+
+        const user = result.rows[0];
+        const newRefreshJti = randomUUID();
+        const newRefreshToken = generateRefreshToken(user.id, newRefreshJti);
+
+        await query(
+            "UPDATE user_sessions SET revoked_at = NOW(), replaced_by_jti = $1 WHERE id = $2 AND revoked_at IS NULL",
+            [newRefreshJti, session.id]
+        );
+        await storeRefreshSession(user.id, newRefreshJti, newRefreshToken, req, decoded.jti);
+        setRefreshCookie(res, newRefreshToken);
+
+        const newAccessToken = generateAccessToken({
+            id: user.id,
+            email: user.email,
+            role: user.role ?? (user.is_admin ? "admin" : "user"),
+            is_email_verified: Boolean(user.is_email_verified),
+            is_admin: Boolean(user.is_admin),
+        });
+
+        return res.json({ accessToken: newAccessToken });
+    } catch {
+        clearRefreshCookie(res);
+        return res.status(403).json({ error: "Invalid or expired refresh token" });
+    }
+});
+
+app.post("/api/logout", async (req: Request, res: Response) => {
+    const refreshToken = getRefreshTokenFromRequest(req);
+    clearRefreshCookie(res);
+
+    if (!refreshToken) {
+        return res.json({ success: true });
+    }
+
+    try {
+        const decoded = verifyRefreshToken(refreshToken);
+        await query(
+            `UPDATE user_sessions
+             SET revoked_at = NOW()
+             WHERE user_id = $1
+               AND jti = $2
+               AND revoked_at IS NULL`,
+            [decoded.id, decoded.jti]
+        );
+    } catch {
+        // Always return success to keep logout idempotent.
+    }
+
+    return res.json({ success: true });
 });
 
 
 // POST register
 
-app.post('/api/register', async (req: Request, res: Response) => {
+app.post('/api/register', registerLimiter, async (req: Request, res: Response) => {
     const { name, email, password, scenario, orgName, orgCategory, orgWebsite, country } = req.body;
     if (!isStrongPassword(password)) {
     return res.status(400).json({
@@ -360,7 +556,7 @@ app.get('/api/stats', async (req: Request, res: Response) => {
 });
 
 // POST import technology
-app.post('/api/technologies/import', async (req: Request, res: Response) => {
+app.post('/api/technologies/import', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
     const { tech, stakeholder } = req.body;
     try {
         // 1. Ensure Stakeholder exists
@@ -409,7 +605,7 @@ app.get('/api/technologies/ids', async (req: Request, res: Response) => {
 });
 
 // PUT stakeholder
-app.put('/api/stakeholders/:id', async (req: Request, res: Response) => {
+app.put('/api/stakeholders/:id', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
     const { id } = req.params;
     const body = req.body;
     try {
@@ -444,7 +640,7 @@ app.get('/api/content', async (req: Request, res: Response) => {
 });
 
 // GET all content details (for admin)
-app.get('/api/admin/content', async (req: Request, res: Response) => {
+app.get('/api/admin/content', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
     res.set('Cache-Control', 'no-store');
     try {
         const result = await query('SELECT * FROM site_content ORDER BY key');
@@ -455,7 +651,7 @@ app.get('/api/admin/content', async (req: Request, res: Response) => {
 });
 
 // PUT update content
-app.put('/api/content/:key', async (req: Request, res: Response) => {
+app.put('/api/content/:key', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
     const { key } = req.params;
     const { content } = req.body;
     console.log(`📝 Updating content [${key}]: ${content.substring(0, 20)}...`);
@@ -514,6 +710,30 @@ app.get('/api/health/db', async (req: Request, res: Response) => {
         });
     }
 });
+// Testing the authentication and role-based access control middleware
+
+
+app.get(
+  "/api/test-auth",
+  authenticateToken,
+  (req, res) => {
+    return res.json({
+      message: "Access granted",
+      user: req.user,
+    });
+  }
+);
+
+app.get(
+  "/api/test-admin",
+  authenticateToken,
+  requireAdmin,
+  (req, res) => {
+    return res.json({
+      message: "Admin access granted",
+    });
+  }
+);
 
 // Serve static files from the dist directory
 const distPath = path.join(__dirname, '../dist');
@@ -663,10 +883,36 @@ const initStatsSchema = async () => {
     }
 };
 
+const initAuthSchema = async () => {
+    try {
+        await query(`
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                jti TEXT NOT NULL,
+                token_hash TEXT NOT NULL,
+                ip_address TEXT,
+                user_agent TEXT,
+                expires_at TIMESTAMPTZ NOT NULL,
+                revoked_at TIMESTAMPTZ,
+                replaced_by_jti TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sessions_jti ON user_sessions(jti);`);
+        await query(`CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);`);
+        await query(`CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);`);
+    } catch (err) {
+        console.error("Failed to initialize auth schema:", err);
+    }
+};
+
 // Start server
 app.listen(Number(PORT), '0.0.0.0', async () => {
     await initContent();
     await initStatsSchema();
+    await initAuthSchema();
     console.log(`Server is running at http://0.0.0.0:${PORT}`);
     console.log(`Serving static files from: ${distPath}`);
 });
+

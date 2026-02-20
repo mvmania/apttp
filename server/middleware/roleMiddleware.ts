@@ -40,7 +40,7 @@ export const requireVerifiedUser = (
     return res.status(401).json({ error: "Authentication required" });
   }
 
-  if ((req.user as any).is_email_verified !== true) {
+  if (req.user.is_email_verified !== true) {
     return res.status(403).json({ error: "Email verification required" });
   }
 

@@ -6,6 +6,8 @@ interface AuthPayload extends JwtPayload {
   id: string;
   email: string;
   role: string;
+  is_email_verified: boolean;
+  is_admin: boolean;
 }
 
 declare global {

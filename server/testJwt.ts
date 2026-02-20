@@ -3,11 +3,13 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyAc
 const payload = {
   id: "u123",
   email: "test@example.com",
-  role: "user"
+  role: "user",
+  is_email_verified: true,
+  is_admin: false,
 };
 
 const access = generateAccessToken(payload);
-const refresh = generateRefreshToken(payload);
+const refresh = generateRefreshToken(payload.id, "test-refresh-jti");
 
 console.log("Access Token:\n", access);
 console.log("\nRefresh Token:\n", refresh);

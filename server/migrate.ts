@@ -98,6 +98,36 @@ async function migrate() {
       );
     `);
 
+
+        await query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        jti TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        ip_address TEXT,
+        user_agent TEXT,
+        expires_at TIMESTAMPTZ NOT NULL,
+        revoked_at TIMESTAMPTZ,
+        replaced_by_jti TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+        await query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sessions_jti
+      ON user_sessions(jti);
+    `);
+
+        await query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id
+      ON user_sessions(user_id);
+    `);
+
+        await query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at
+      ON user_sessions(expires_at);
+    `);
         console.log('✅ Tables created successfully.');
 
         // 2. Load and Seed Data

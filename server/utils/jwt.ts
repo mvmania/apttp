@@ -1,6 +1,9 @@
 // apttp/server/utils/jwt.ts
-import { sign, verify, type SignOptions } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import type { JwtPayload, SignOptions } from "jsonwebtoken";
 import { securityConfig } from "../config/security.js";
+
+const { sign, verify } = jwt;
 
 export interface TokenPayload {
   id: string;
@@ -12,6 +15,7 @@ export interface TokenPayload {
 
 export interface RefreshPayload {
   id: string;
+  jti: string;
 }
 
 export const generateAccessToken = (payload: TokenPayload): string => {
@@ -22,9 +26,9 @@ export const generateAccessToken = (payload: TokenPayload): string => {
   return sign(payload, securityConfig.jwt.accessSecret, options);
 };
 
-export const generateRefreshToken = (userId: string): string => {
+export const generateRefreshToken = (userId: string, jti: string): string => {
   return sign(
-    { id: userId },
+    { id: userId, jti },
     securityConfig.jwt.refreshSecret,
     {
       expiresIn: securityConfig.jwt.refreshExpiry ?? "7d",
@@ -49,6 +53,10 @@ export const verifyRefreshToken = (token: string): RefreshPayload => {
     throw new Error("Invalid refresh token");
   }
 
-  return decoded as RefreshPayload;
-};
+  const payload = decoded as JwtPayload;
+  if (!payload.id || !payload.jti) {
+    throw new Error("Malformed refresh token payload");
+  }
 
+  return { id: String(payload.id), jti: String(payload.jti) };
+};

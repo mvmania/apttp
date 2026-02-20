@@ -64,12 +64,12 @@ async function scrapeCSIR() {
                 // Extract Institute
                 let institute = 'Unknown';
                 const instMatch = containerText.match(/Institute:\s*(CSIR-[A-Z]+)/i);
-                if (instMatch) institute = instMatch[1];
+                if (instMatch && instMatch[1]) institute = instMatch[1];
 
                 // Extract TRL
                 let trl = 'Unknown';
                 const trlMatch = containerText.match(/Technology Readiness Level\s*(TRL-\d+)/i);
-                if (trlMatch) trl = trlMatch[1];
+                if (trlMatch && trlMatch[1]) trl = trlMatch[1];
 
                 // Extract Description (Crude approximation: remove known parts)
                 let description = containerText
