@@ -16,9 +16,6 @@ import { securityConfig } from "./config/security.js";
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { requireAdmin, requireVerifiedUser } from "./middleware/roleMiddleware.js";
 
-
-
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -125,7 +122,7 @@ const clearRefreshCookie = (res: Response): void => {
     if (securityConfig.cookies.domain) {
         cookieParts.push(`Domain=${securityConfig.cookies.domain}`);
     }
-    res.setHeader("Set-Cookie", cookieParts.join("; "));
+    res.append("Set-Cookie", cookieParts.join("; "));
 };
 
 const getRefreshTokenFromRequest = (req: Request): string | null => {
@@ -505,7 +502,10 @@ app.put('/api/users/:id', async (req: Request, res: Response) => {
 
         // Handle mapped fields
         let mappedUpdate = '';
-        if (body.isAdmin !== undefined) mappedUpdate += `, is_admin = ${body.isAdmin}`;
+           if (body.isAdmin !== undefined) {
+         mappedUpdate += `, is_admin = $${values.length + 2}`;
+        values.push(body.isAdmin);
+}
 
         await query(`UPDATE users SET ${setClause} ${mappedUpdate} WHERE id = $1`, [id, ...values]);
         res.json({ message: 'User updated' });
@@ -524,6 +524,7 @@ app.delete('/api/users/:id', async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Delete failed' });
     }
 });
+//
 
 // GET stats
 app.get('/api/stats', async (req: Request, res: Response) => {
@@ -614,8 +615,15 @@ app.put('/api/stakeholders/:id', authenticateToken, requireAdmin, async (req: Re
         const values = keys.map(k => body[k]);
 
         let jsonUpdates = '';
-        if (body.key_tech_areas) jsonUpdates += `, key_tech_areas = '${JSON.stringify(body.key_tech_areas)}'`;
-        if (body.roles) jsonUpdates += `, roles = '${JSON.stringify(body.roles)}'`;
+        if (body.key_tech_areas) {
+  jsonUpdates += `, key_tech_areas = $${values.length + 2}`;
+  values.push(JSON.stringify(body.key_tech_areas));
+}
+
+if (body.roles) {
+  jsonUpdates += `, roles = $${values.length + 2}`;
+  values.push(JSON.stringify(body.roles));
+}
 
         await query(`UPDATE stakeholders SET ${setClause} ${jsonUpdates} WHERE stakeholder_id = $1`, [id, ...values]);
         res.json({ message: 'Stakeholder updated' });
@@ -908,11 +916,12 @@ const initAuthSchema = async () => {
 };
 
 // Start server
-app.listen(Number(PORT), '0.0.0.0', async () => {
-    await initContent();
-    await initStatsSchema();
-    await initAuthSchema();
-    console.log(`Server is running at http://0.0.0.0:${PORT}`);
-    console.log(`Serving static files from: ${distPath}`);
-});
+(async () => {
+  await initAuthSchema();
+  await initStatsSchema();
+  await initContent();
 
+  app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+})();
