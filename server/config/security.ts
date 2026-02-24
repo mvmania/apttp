@@ -21,6 +21,21 @@ const parseBoolean = (value: string | undefined, fallback: boolean): boolean => 
   return value.toLowerCase() === "true";
 };
 
+const parseSameSite = (value: string | undefined): "lax" | "strict" | "none" => {
+  const normalized = (value || "lax").toLowerCase();
+  if (normalized === "lax" || normalized === "strict" || normalized === "none") {
+    return normalized;
+  }
+  throw new Error(`Invalid COOKIE_SAMESITE value: ${value}`);
+};
+
+const cookieSecure = parseBoolean(process.env.COOKIE_SECURE, process.env.NODE_ENV === "production");
+const cookieSameSite = parseSameSite(process.env.COOKIE_SAMESITE);
+
+if (cookieSameSite === "none" && !cookieSecure) {
+  throw new Error("COOKIE_SAMESITE=none requires COOKIE_SECURE=true");
+}
+
 export const securityConfig = {
   jwt: {
     accessSecret: requiredEnv("JWT_ACCESS_SECRET"),
@@ -35,8 +50,8 @@ export const securityConfig = {
 
   cookies: {
     refreshTokenName: process.env.REFRESH_COOKIE_NAME || "apttp_refresh_token",
-    secure: parseBoolean(process.env.COOKIE_SECURE, process.env.NODE_ENV === "production"),
-    sameSite: (process.env.COOKIE_SAMESITE || "lax").toLowerCase() as "lax" | "strict" | "none",
+    secure: cookieSecure,
+    sameSite: cookieSameSite,
     domain: process.env.COOKIE_DOMAIN || undefined,
     path: process.env.COOKIE_PATH || "/api",
   },
@@ -47,6 +62,7 @@ export const securityConfig = {
     authWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000),
     loginMax: Number(process.env.LOGIN_RATE_LIMIT_MAX || 10),
     registerMax: Number(process.env.REGISTER_RATE_LIMIT_MAX || 8),
-    refreshMax: Number(process.env.REFRESH_RATE_LIMIT_MAX || 30),
+    refreshWindowMs: Number(process.env.REFRESH_RATE_LIMIT_WINDOW_MS || 60 * 1000),
+    refreshMax: Number(process.env.REFRESH_RATE_LIMIT_MAX || 5),
   },
 };
