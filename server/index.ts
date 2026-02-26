@@ -1,16 +1,17 @@
 
 import bcrypt from "bcrypt";
-import { createHash, randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "./utils/jwt.js";
 import express from 'express';
 import type { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import nodemailer from "nodemailer";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { query } from './db.js';
+import { getClient, query } from './db.js';
 import { isStrongPassword } from "./utils/validatePassword.js";
 import { securityConfig } from "./config/security.js";
 import { authenticateToken } from "./middleware/authMiddleware.js";
@@ -46,6 +47,7 @@ const authLimiterBase = {
 const loginLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.loginMax });
 const registerLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.registerMax });
 const refreshLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.refreshMax });
+const verifyEmailLimiter = rateLimit({ ...authLimiterBase, max: 20 });
 
 app.use("/api", globalLimiter);
 
@@ -68,6 +70,58 @@ const parseCookieHeader = (cookieHeader?: string): Record<string, string> => {
 
 const hashToken = (token: string): string => {
     return createHash("sha256").update(token).digest("hex");
+};
+
+const EMAIL_VERIFICATION_TTL_MINUTES = 15;
+
+const buildEmailVerificationUrl = (token: string): string => {
+    const backendBaseUrl = process.env.BACKEND_BASE_URL || `http://localhost:${PORT}`;
+    const normalizedBaseUrl = backendBaseUrl.replace(/\/+$/, "");
+    return `${normalizedBaseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+};
+
+const getSmtpConfig = () => {
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    if (!smtpUser || !smtpPass) {
+        throw new Error("SMTP_USER and SMTP_PASS must be configured for email verification.");
+    }
+
+    return {
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: (process.env.SMTP_SECURE || "false").toLowerCase() === "true",
+        user: smtpUser,
+        pass: smtpPass,
+        from: process.env.SMTP_FROM || smtpUser
+    };
+};
+
+const sendVerificationEmail = async (email: string, name: string, verificationUrl: string): Promise<void> => {
+    const smtp = getSmtpConfig();
+    const transporter = nodemailer.createTransport({
+        host: smtp.host,
+        port: smtp.port,
+        secure: smtp.secure,
+        auth: {
+            user: smtp.user,
+            pass: smtp.pass
+        }
+    });
+
+    await transporter.sendMail({
+        from: smtp.from,
+        to: email,
+        subject: "Verify your email address",
+        text: `Hi ${name},\n\nPlease verify your email by clicking this link:\n${verificationUrl}\n\nThis link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.\n`,
+        html: `
+            <p>Hi ${name},</p>
+            <p>Please verify your email by clicking the link below:</p>
+            <p><a href="${verificationUrl}">${verificationUrl}</a></p>
+            <p>This link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.</p>
+        `
+    });
 };
 
 const parseExpiryToMs = (expiry: string | number | undefined): number => {
@@ -450,18 +504,20 @@ app.post('/api/register', registerLimiter, async (req: Request, res: Response) =
     }
 
      const hashedPassword = await bcrypt.hash(password, 12);
-
-
+    const client = await getClient();
     try {
-        const check = await query('SELECT * FROM users WHERE email = $1', [email]);
+        await client.query("BEGIN");
+
+        const check = await client.query('SELECT 1 FROM users WHERE email = $1', [email]);
         if (check.rows.length > 0) {
+            await client.query("ROLLBACK");
             return res.status(400).json({ error: 'User already exists' });
         }
 
         let stakeholder_id = '';
         if ((scenario === 'Organization Representative' || scenario === 'Official Representative') && orgName) {
             stakeholder_id = `s${Date.now()}`;
-            await query(`
+            await client.query(`
                 INSERT INTO stakeholders (
                     stakeholder_id, name, category, website, description, is_verified, roles
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -473,7 +529,7 @@ app.post('/api/register', registerLimiter, async (req: Request, res: Response) =
 
         const id = `u${Date.now()}`;
         const joinedDate = Date.now();
-        await query(`
+        await client.query(`
             INSERT INTO users (
                 id, name, email, password, scenario, stakeholder_id, 
                 is_verified, is_email_verified, is_id_verified, 
@@ -484,9 +540,98 @@ app.post('/api/register', registerLimiter, async (req: Request, res: Response) =
             false, false, false, 'None', false, joinedDate, country || null
         ]);
 
-        res.status(201).json({ id, name, email, scenario, stakeholder_id, joinedDate });
+        const rawVerificationToken = randomBytes(32).toString("hex");
+        const verificationTokenHash = hashToken(rawVerificationToken);
+        const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MINUTES * 60 * 1000);
+
+        await client.query(
+            `INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at)
+             VALUES ($1, $2, $3, $4)`,
+            [randomUUID(), id, verificationTokenHash, expiresAt]
+        );
+
+        const verificationUrl = buildEmailVerificationUrl(rawVerificationToken);
+        await sendVerificationEmail(email, name, verificationUrl);
+        await client.query("COMMIT");
+
+        res.status(201).json({
+            id,
+            name,
+            email,
+            scenario,
+            stakeholder_id,
+            joinedDate,
+            verification_required: true,
+            message: "Registration successful. Please verify your email within 15 minutes."
+        });
     } catch (err) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // Ignore rollback errors to preserve the original failure context.
+        }
+        console.error("Registration failed:", err);
         res.status(500).json({ error: 'Registration failed' });
+    } finally {
+        client.release();
+    }
+});
+
+app.get('/api/auth/verify-email', verifyEmailLimiter, async (req: Request, res: Response) => {
+    const token = String(req.query.token || "").trim();
+    if (!token) {
+        return res.status(400).json({ error: "Verification token is required" });
+    }
+
+    const tokenHash = hashToken(token);
+    const client = await getClient();
+    try {
+        await client.query("BEGIN");
+
+        const tokenResult = await client.query(
+            `SELECT id, user_id
+             FROM email_verification_tokens
+             WHERE token_hash = $1
+               AND used_at IS NULL
+               AND expires_at > NOW()
+             ORDER BY created_at DESC
+             LIMIT 1
+             FOR UPDATE`,
+            [tokenHash]
+        );
+
+        if (tokenResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Invalid or expired verification token" });
+        }
+
+        const tokenRow = tokenResult.rows[0];
+        await client.query(
+            `UPDATE email_verification_tokens
+             SET used_at = NOW()
+             WHERE id = $1`,
+            [tokenRow.id]
+        );
+
+        await client.query(
+            `UPDATE users
+             SET is_email_verified = TRUE
+             WHERE id = $1`,
+            [tokenRow.user_id]
+        );
+
+        await client.query("COMMIT");
+        return res.json({ success: true, message: "Email verified successfully" });
+    } catch (err) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // Ignore rollback errors to preserve the original failure context.
+        }
+        console.error("Email verification failed:", err);
+        return res.status(500).json({ error: "Email verification failed" });
+    } finally {
+        client.release();
     }
 });
 
@@ -910,6 +1055,20 @@ const initAuthSchema = async () => {
         await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sessions_jti ON user_sessions(jti);`);
         await query(`CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);`);
         await query(`CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);`);
+
+        await query(`
+            CREATE TABLE IF NOT EXISTS email_verification_tokens (
+                id UUID PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token_hash VARCHAR(64) NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                used_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        await query(`CREATE INDEX IF NOT EXISTS idx_email_verification_token_hash ON email_verification_tokens(token_hash);`);
+        await query(`CREATE INDEX IF NOT EXISTS idx_email_verification_user_id ON email_verification_tokens(user_id);`);
+        await query(`CREATE INDEX IF NOT EXISTS idx_email_verification_expires_at ON email_verification_tokens(expires_at);`);
     } catch (err) {
         console.error("Failed to initialize auth schema:", err);
     }
