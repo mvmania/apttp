@@ -1,7 +1,38 @@
 const API_URL = 'http://localhost:10000/api';
 
+const getAccessToken = (): string => localStorage.getItem('apctt_access_token') || '';
+
+const getAuthHeaders = (): Record<string, string> => {
+    const token = getAccessToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const readErrorMessage = async (response: Response, fallback: string): Promise<string> => {
+    try {
+        const payload = await response.json();
+        return payload?.error || fallback;
+    } catch {
+        return fallback;
+    }
+};
 
 export const apiService = {
+    async loginUser(email: string, password: string, captchaToken?: string) {
+        const payload: Record<string, string> = { email, password };
+        if (captchaToken) payload.captchaToken = captchaToken;
+
+        const response = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Login failed'));
+        }
+        return response.json();
+    },
+
     async getStakeholders() {
         const response = await fetch(`${API_URL}/stakeholders`);
         if (!response.ok) throw new Error('Failed to fetch stakeholders');
@@ -44,45 +75,48 @@ export const apiService = {
         return response.json();
     },
 
-    async registerTechnology(techData: any) {
+    async registerTechnology(techData: any, turnstileToken?: string) {
+        const payload = turnstileToken ? { ...techData, turnstileToken } : techData;
         const response = await fetch(`${API_URL}/technologies`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(techData)
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify(payload)
         });
-        if (!response.ok) throw new Error('Failed to register technology');
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to register technology'));
         return response.json();
     },
 
-    async registerNeed(needData: any) {
+    async registerNeed(needData: any, turnstileToken?: string) {
+        const payload = turnstileToken ? { ...needData, turnstileToken } : needData;
         const response = await fetch(`${API_URL}/tech-needs`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(needData)
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify(payload)
         });
-        if (!response.ok) throw new Error('Failed to register need');
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to register need'));
         return response.json();
     },
 
-    async registerOpportunity(oppData: any) {
+    async registerOpportunity(oppData: any, turnstileToken?: string) {
+        const payload = turnstileToken ? { ...oppData, turnstileToken } : oppData;
         const response = await fetch(`${API_URL}/opportunities`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(oppData)
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify(payload)
         });
-        if (!response.ok) throw new Error('Failed to register opportunity');
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to register opportunity'));
         return response.json();
     },
 
-    async registerUser(userData: any) {
+    async registerUser(userData: any, turnstileToken?: string) {
+        const payload = turnstileToken ? { ...userData, turnstileToken } : userData;
         const response = await fetch(`${API_URL}/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData)
+            body: JSON.stringify(payload)
         });
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to register');
+            throw new Error(await readErrorMessage(response, 'Failed to register'));
         }
         return response.json();
     },
@@ -90,28 +124,29 @@ export const apiService = {
     async updateUser(id: string, userData: any) {
         const response = await fetch(`${API_URL}/users/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify(userData)
         });
-        if (!response.ok) throw new Error('Failed to update user');
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to update user'));
         return response.json();
     },
 
     async updateStakeholder(id: string, stakeholderData: any) {
         const response = await fetch(`${API_URL}/stakeholders/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify(stakeholderData)
         });
-        if (!response.ok) throw new Error('Failed to update stakeholder');
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to update stakeholder'));
         return response.json();
     },
 
     async deleteUser(id: string) {
         const response = await fetch(`${API_URL}/users/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: { ...getAuthHeaders() }
         });
-        if (!response.ok) throw new Error('Failed to delete user');
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to delete user'));
         return true;
     },
 
@@ -122,18 +157,20 @@ export const apiService = {
     },
 
     async getAdminContent() {
-        const response = await fetch(`${API_URL}/admin/content`);
-        if (!response.ok) throw new Error('Failed to fetch admin content');
+        const response = await fetch(`${API_URL}/admin/content`, {
+            headers: { ...getAuthHeaders() }
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to fetch admin content'));
         return response.json();
     },
 
     async updateContent(key: string, content: string) {
         const response = await fetch(`${API_URL}/content/${key}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify({ content })
         });
-        if (!response.ok) throw new Error('Failed to update content');
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to update content'));
         return response.json();
     }
 };

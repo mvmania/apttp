@@ -6,12 +6,16 @@ import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
 import { ArrowLeft, Save, Lightbulb, AlertCircle, Info, Clock, DollarSign, Briefcase } from 'lucide-react';
 import { TechNeed } from '../types';
+import { getTurnstileSiteKey } from '../services/turnstileService';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 const RegisterNeed: React.FC = () => {
   const { user } = useAuth();
   const config = useConfig();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileSiteKey = getTurnstileSiteKey();
 
   const [formData, setFormData] = useState<Partial<TechNeed>>({
     title: '',
@@ -31,12 +35,18 @@ const RegisterNeed: React.FC = () => {
     setLoading(true);
 
     try {
+      if (turnstileSiteKey && !captchaToken) {
+        alert('Please complete the CAPTCHA challenge.');
+        setLoading(false);
+        return;
+      }
+
       const newNeed = {
         ...formData,
         seeker_id: user.id,
         status: 'open'
       };
-      await apiService.registerNeed(newNeed);
+      await apiService.registerNeed(newNeed, captchaToken || undefined);
       setLoading(false);
       navigate('/dashboard');
     } catch (error) {
@@ -148,6 +158,16 @@ const RegisterNeed: React.FC = () => {
               <strong>Notice:</strong> Your requirement will be listed in the public directory. Interested technology providers will be able to initiate a discussion. We recommend not sharing highly confidential details at this stage.
             </p>
           </div>
+
+          {turnstileSiteKey && (
+            <div className="pt-2">
+              <TurnstileWidget
+                siteKey={turnstileSiteKey}
+                action="tech_need_submit"
+                onTokenChange={setCaptchaToken}
+              />
+            </div>
+          )}
 
           <div className="flex justify-end gap-4 pt-4">
             <button

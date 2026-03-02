@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
 import { ArrowLeft, Save, Info, AlertCircle, ShieldCheck, ExternalLink, Globe, Lock, Handshake, Mail } from 'lucide-react';
 import { Technology, UserAccount } from '../types';
+import { getTurnstileSiteKey } from '../services/turnstileService';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 const RegisterTechnology: React.FC = () => {
   const { user } = useAuth();
@@ -13,6 +15,8 @@ const RegisterTechnology: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileSiteKey = getTurnstileSiteKey();
 
   const [formData, setFormData] = useState<Partial<Technology>>({
     name: '',
@@ -66,13 +70,19 @@ const RegisterTechnology: React.FC = () => {
     setLoading(true);
 
     try {
+      if (turnstileSiteKey && !captchaToken) {
+        alert('Please complete the CAPTCHA challenge.');
+        setLoading(false);
+        return;
+      }
+
       const newTech = {
         ...formData,
         stakeholder_id: currentUser.stakeholder_id,
         trl_level: 1, // Default TRL level as Number
         ip_status: formData.ip_status || 'patented'
       };
-      await apiService.registerTechnology(newTech);
+      await apiService.registerTechnology(newTech, captchaToken || undefined);
       setLoading(false);
       navigate('/technologies'); // Navigate to technologies list to see the change
     } catch (error) {
@@ -257,6 +267,16 @@ const RegisterTechnology: React.FC = () => {
               <strong>Notice:</strong> By registering, you confirm that your organization holds the intellectual property rights or necessary licenses for this technology. Information provided will be visible based on your selected disclosure level.
             </p>
           </div>
+
+          {turnstileSiteKey && (
+            <div className="pt-2">
+              <TurnstileWidget
+                siteKey={turnstileSiteKey}
+                action="technology_submit"
+                onTokenChange={setCaptchaToken}
+              />
+            </div>
+          )}
 
           <div className="flex justify-end gap-4 pt-4">
             <button

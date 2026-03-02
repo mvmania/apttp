@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
 import { UserScenario, StakeholderCategory } from '../types';
 import {
@@ -19,13 +18,16 @@ import {
 } from 'lucide-react';
 
 import { apiService } from '../services/apiService';
+import { getTurnstileSiteKey } from '../services/turnstileService';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 const Register: React.FC = () => {
-  const { login } = useAuth();
   const config = useConfig();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileSiteKey = getTurnstileSiteKey();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -65,11 +67,16 @@ const Register: React.FC = () => {
     setLoading(true);
 
     try {
-      await apiService.registerUser(formData);
-      // After registration, log them in automatically
-      await login(formData.email);
+      if (turnstileSiteKey && !captchaToken) {
+        alert('Please complete the CAPTCHA challenge.');
+        setLoading(false);
+        return;
+      }
+
+      await apiService.registerUser(formData, captchaToken || undefined);
       setLoading(false);
-      navigate('/dashboard');
+      alert('Registration successful. Please verify your email, then sign in.');
+      navigate('/login');
     } catch (error: any) {
       console.error('Registration error:', error);
       alert(error.message || 'Failed to register. Please try again.');
@@ -280,17 +287,28 @@ const Register: React.FC = () => {
                   Next Step <ArrowRight className="ml-2 w-4 h-4" />
                 </button>
               ) : (
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-grow bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center transition-all shadow-xl shadow-blue-100 disabled:bg-blue-300"
-                >
-                  {loading ? (
-                    <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>Complete Registration <ChevronRight className="ml-2 w-4 h-4" /></>
+                <div className="flex-grow">
+                  {turnstileSiteKey && (
+                    <div className="mb-4">
+                      <TurnstileWidget
+                        siteKey={turnstileSiteKey}
+                        action="register"
+                        onTokenChange={setCaptchaToken}
+                      />
+                    </div>
                   )}
-                </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center transition-all shadow-xl shadow-blue-100 disabled:bg-blue-300"
+                  >
+                    {loading ? (
+                      <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>Complete Registration <ChevronRight className="ml-2 w-4 h-4" /></>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
           </form>

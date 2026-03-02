@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "./utils/jwt.js";
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -70,6 +70,86 @@ const parseCookieHeader = (cookieHeader?: string): Record<string, string> => {
 
 const hashToken = (token: string): string => {
     return createHash("sha256").update(token).digest("hex");
+};
+
+const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+const turnstileEnabled = (process.env.TURNSTILE_ENABLED || "false").toLowerCase() === "true";
+const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY || "";
+
+interface TurnstileVerificationResult {
+    success: boolean;
+    action?: string;
+    "error-codes"?: string[];
+}
+
+const getTurnstileTokenFromRequest = (req: Request): string => {
+    const body = req.body || {};
+    const fromBody =
+        body.turnstileToken ||
+        body["cf-turnstile-response"] ||
+        body.captchaToken;
+    const fromHeader =
+        req.header("cf-turnstile-response") ||
+        req.header("x-turnstile-token");
+    return String(fromBody || fromHeader || "").trim();
+};
+
+const verifyTurnstileToken = async (token: string, remoteIp?: string): Promise<TurnstileVerificationResult> => {
+    const body = new URLSearchParams({
+        secret: turnstileSecretKey,
+        response: token
+    });
+    if (remoteIp) {
+        body.append("remoteip", remoteIp);
+    }
+
+    const response = await fetch(TURNSTILE_VERIFY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+    });
+
+    if (!response.ok) {
+        throw new Error(`Turnstile verify request failed with status ${response.status}`);
+    }
+
+    return (await response.json()) as TurnstileVerificationResult;
+};
+
+const requireTurnstile = (expectedAction?: string) => {
+    return async (req: Request, res: Response, next: NextFunction) => {
+        if (!turnstileEnabled) {
+            return next();
+        }
+
+        if (!turnstileSecretKey) {
+            return res.status(503).json({ error: "Captcha is enabled but TURNSTILE_SECRET_KEY is not configured" });
+        }
+
+        const token = getTurnstileTokenFromRequest(req);
+        if (!token) {
+            return res.status(400).json({ error: "Captcha token is required" });
+        }
+
+        try {
+            const result = await verifyTurnstileToken(token, req.ip);
+            if (!result.success) {
+                return res.status(403).json({
+                    error: "Captcha verification failed",
+                    details: result["error-codes"] || []
+                });
+            }
+
+            if (expectedAction && result.action && result.action !== expectedAction) {
+                return res.status(403).json({ error: "Captcha action mismatch" });
+            }
+
+            return next();
+        } catch (error) {
+            console.error("Turnstile verification error:", error);
+            return res.status(502).json({ error: "Captcha verification service unavailable" });
+        }
+    };
 };
 
 const EMAIL_VERIFICATION_TTL_MINUTES = 15;
@@ -253,7 +333,7 @@ app.get('/api/technologies', async (req: Request, res: Response) => {
 });
 
 // POST technology
-app.post('/api/technologies', authenticateToken, requireVerifiedUser, async (req: Request, res: Response) => {
+app.post('/api/technologies', authenticateToken, requireVerifiedUser, requireTurnstile("technology_submit"), async (req: Request, res: Response) => {
     try {
         const t = req.body;
         const id = `t${Date.now()}`;
@@ -287,7 +367,7 @@ app.get('/api/tech-needs', async (req: Request, res: Response) => {
 });
 
 // POST tech need
-app.post('/api/tech-needs', authenticateToken, requireVerifiedUser, async (req: Request, res: Response) => {
+app.post('/api/tech-needs', authenticateToken, requireVerifiedUser, requireTurnstile("tech_need_submit"), async (req: Request, res: Response) => {
     try {
         const n = req.body;
         const id = `n${Date.now()}`;
@@ -318,7 +398,7 @@ app.get('/api/opportunities', async (req: Request, res: Response) => {
 });
 
 // POST opportunity
-app.post('/api/opportunities', authenticateToken, requireVerifiedUser, async (req: Request, res: Response) => {
+app.post('/api/opportunities', authenticateToken, requireVerifiedUser, requireTurnstile("opportunity_submit"), async (req: Request, res: Response) => {
     try {
         const o = req.body;
         const id = `o${Date.now()}`;
@@ -349,7 +429,7 @@ app.get('/api/users', async (req: Request, res: Response) => {
 
 
  //api/login route with this
-app.post("/api/login", loginLimiter, async (req: Request, res: Response) => {
+app.post("/api/login", loginLimiter, requireTurnstile("login"), async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
@@ -383,9 +463,16 @@ app.post("/api/login", loginLimiter, async (req: Request, res: Response) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        scenario: user.scenario,
+        stakeholder_id: user.stakeholder_id || undefined,
+        is_verified: Boolean(user.is_verified),
         role: user.role ?? (user.is_admin ? "admin" : "user"),
         is_email_verified: Boolean(user.is_email_verified),
+        is_id_verified: Boolean(user.is_id_verified),
+        verification_status: user.verification_status || "None",
         is_admin: Boolean(user.is_admin),
+        isAdmin: Boolean(user.is_admin),
+        joinedDate: Number(user.joined_date || Date.now()),
       },
     });
   } catch (err) {
@@ -495,7 +582,7 @@ app.post("/api/logout", async (req: Request, res: Response) => {
 
 // POST register
 
-app.post('/api/register', registerLimiter, async (req: Request, res: Response) => {
+app.post('/api/register', registerLimiter, requireTurnstile("register"), async (req: Request, res: Response) => {
     const { name, email, password, scenario, orgName, orgCategory, orgWebsite, country } = req.body;
     if (!isStrongPassword(password)) {
     return res.status(400).json({
@@ -571,7 +658,10 @@ app.post('/api/register', registerLimiter, async (req: Request, res: Response) =
             // Ignore rollback errors to preserve the original failure context.
         }
         console.error("Registration failed:", err);
-        res.status(500).json({ error: 'Registration failed' });
+        const message = err instanceof Error ? err.message : 'Registration failed';
+        res.status(500).json({
+            error: process.env.NODE_ENV === 'development' ? message : 'Registration failed'
+        });
     } finally {
         client.release();
     }

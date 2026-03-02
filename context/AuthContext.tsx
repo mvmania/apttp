@@ -1,11 +1,11 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
-import { UserAccount } from '../types';
+import { UserAccount, UserScenario, VerificationStatus } from '../types';
 
 interface AuthContextType {
   user: UserAccount | null;
-  login: (email: string) => Promise<boolean>;
+  login: (email: string, password: string, captchaToken?: string) => Promise<boolean>;
   logout: () => void;
   isLoggedIn: boolean;
 }
@@ -22,16 +22,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (email: string) => {
+  const toUserAccount = (u: any): UserAccount => {
+    return {
+      id: u.id,
+      name: u.name || '',
+      email: u.email || '',
+      scenario: (u.scenario as UserScenario) || UserScenario.INDIVIDUAL,
+      stakeholder_id: u.stakeholder_id || undefined,
+      is_verified: Boolean(u.is_verified),
+      is_email_verified: Boolean(u.is_email_verified),
+      is_id_verified: Boolean(u.is_id_verified),
+      verification_status: (u.verification_status as VerificationStatus) || VerificationStatus.NONE,
+      joinedDate: Number(u.joinedDate ?? u.joined_date ?? Date.now()),
+      isAdmin: Boolean(u.isAdmin ?? u.is_admin ?? u.role === 'admin')
+    };
+  };
+
+  const login = async (email: string, password: string, captchaToken?: string) => {
     try {
-      const users = await apiService.getUsers();
-      const foundUser = users.find((u: any) => u.email === email);
-      if (foundUser) {
-        setUser(foundUser);
-        localStorage.setItem('apctt_user_account', JSON.stringify(foundUser));
-        return true;
+      const response = await apiService.loginUser(email, password, captchaToken);
+      const mappedUser = toUserAccount(response.user);
+      setUser(mappedUser);
+      localStorage.setItem('apctt_user_account', JSON.stringify(mappedUser));
+      if (response.accessToken) {
+        localStorage.setItem('apctt_access_token', response.accessToken);
       }
-      return false;
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -41,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('apctt_user_account');
+    localStorage.removeItem('apctt_access_token');
   };
 
   return (

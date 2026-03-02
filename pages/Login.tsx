@@ -1,27 +1,31 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Globe, Lock, Mail, ArrowRight, Building2, User as UserIcon, ShieldCheck, ChevronRight, Settings } from 'lucide-react';
+import { Globe, Lock, Mail, ArrowRight } from 'lucide-react';
+import { getTurnstileSiteKey } from '../services/turnstileService';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+  const turnstileSiteKey = getTurnstileSiteKey();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await login(email);
+    if (turnstileSiteKey && !captchaToken) {
+      alert('Please complete the CAPTCHA challenge.');
+      return;
+    }
+
+    const success = await login(email, password, captchaToken || undefined);
     if (success) {
       navigate('/dashboard');
     } else {
-      alert('Invalid email or user not found. (Use any of: admin@apctt.org, j.chen@greenfuture.com, e.wong@greenfuture.com)');
+      alert('Invalid credentials or captcha verification failed.');
     }
-  };
-
-  const handleDemoLogin = async (e: string, dest: string) => {
-    await login(e);
-    navigate(dest);
   };
 
   return (
@@ -58,12 +62,22 @@ const Login: React.FC = () => {
                 <input
                   type="password"
                   required
-                  placeholder="••••••••"
+                  placeholder="********"
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
             </div>
           </div>
+
+          {turnstileSiteKey && (
+            <TurnstileWidget
+              siteKey={turnstileSiteKey}
+              action="login"
+              onTokenChange={setCaptchaToken}
+            />
+          )}
 
           <button
             type="submit"
@@ -71,58 +85,6 @@ const Login: React.FC = () => {
           >
             Sign In <ArrowRight className="ml-2 w-4 h-4" />
           </button>
-
-          <div className="relative flex items-center justify-center py-4">
-            <div className="border-t border-slate-100 w-full"></div>
-            <span className="bg-white px-4 text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] absolute">Select Demo Scenario</span>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 max-h-64 overflow-y-auto pr-2 scrollbar-hide">
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('admin@apctt.org', '/admin')}
-              className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-3.5 px-4 rounded-xl border border-indigo-200 transition-all flex items-center justify-between group shadow-sm"
-            >
-              <div className="flex items-center">
-                <Settings className="w-5 h-5 mr-3 text-indigo-600" />
-                <div className="text-left">
-                  <p className="text-sm">Platform Admin</p>
-                  <p className="text-[10px] text-indigo-400 font-normal italic">APCTT Internal Staff</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-indigo-300 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('j.chen@greenfuture.com', '/dashboard')}
-              className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3.5 px-4 rounded-xl border border-slate-200 transition-all flex items-center justify-between group"
-            >
-              <div className="flex items-center">
-                <ShieldCheck className="w-5 h-5 mr-3 text-blue-600" />
-                <div className="text-left">
-                  <p className="text-sm">Official Representative</p>
-                  <p className="text-[10px] text-slate-400 font-normal">GreenFuture Tech CEO</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('e.wong@greenfuture.com', '/dashboard')}
-              className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3.5 px-4 rounded-xl border border-slate-200 transition-all flex items-center justify-between group"
-            >
-              <div className="flex items-center">
-                <Building2 className="w-5 h-5 mr-3 text-slate-400" />
-                <div className="text-left">
-                  <p className="text-sm">Organization Member</p>
-                  <p className="text-[10px] text-slate-400 font-normal">Internal Staff Access</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
         </form>
 
         <div className="p-6 bg-slate-50 text-center border-t border-slate-100">

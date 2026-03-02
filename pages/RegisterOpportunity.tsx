@@ -7,6 +7,8 @@ import { useOpportunities } from '../context/OpportunityContext';
 import { useConfig } from '../context/ConfigContext';
 import { ArrowLeft, Save, Bell, Info, Calendar, Megaphone, Image as ImageIcon, Globe } from 'lucide-react';
 import { Opportunity } from '../types';
+import { getTurnstileSiteKey } from '../services/turnstileService';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 const RegisterOpportunity: React.FC = () => {
   const { user } = useAuth();
@@ -14,6 +16,8 @@ const RegisterOpportunity: React.FC = () => {
   const config = useConfig();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileSiteKey = getTurnstileSiteKey();
 
   const [formData, setFormData] = useState<Partial<Opportunity>>({
     // Fix: Cast string from config to the specific union type required by Opportunity
@@ -34,6 +38,12 @@ const RegisterOpportunity: React.FC = () => {
     setLoading(true);
 
     try {
+      if (turnstileSiteKey && !captchaToken) {
+        alert('Please complete the CAPTCHA challenge.');
+        setLoading(false);
+        return;
+      }
+
       const newOpp = {
         type: formData.type as any,
         title: formData.title!,
@@ -43,7 +53,7 @@ const RegisterOpportunity: React.FC = () => {
         imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200'
       };
 
-      await apiService.registerOpportunity(newOpp);
+      await apiService.registerOpportunity(newOpp, captchaToken || undefined);
       // Also update context for immediate UI feedback if needed, 
       // but the backend is the source of truth now.
       addOpportunity(newOpp);
@@ -158,6 +168,16 @@ const RegisterOpportunity: React.FC = () => {
               <strong>Network Reach:</strong> This update will be visible to all registered technology providers, seekers, and investors in the Asia-Pacific region.
             </p>
           </div>
+
+          {turnstileSiteKey && (
+            <div className="pt-2">
+              <TurnstileWidget
+                siteKey={turnstileSiteKey}
+                action="opportunity_submit"
+                onTokenChange={setCaptchaToken}
+              />
+            </div>
+          )}
 
           <div className="flex justify-end gap-4 pt-4">
             <button
