@@ -48,14 +48,34 @@ const loginLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLim
 const registerLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.registerMax });
 const refreshLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.refreshMax });
 const verifyEmailLimiter = rateLimit({ ...authLimiterBase, max: 20 });
+const resendVerificationLimiter = rateLimit({ ...authLimiterBase, max: 5 });
 
 app.use("/api", globalLimiter);
 
-// Helper to map DB users to frontend format
+// Helper to map DB users to frontend-safe format (never expose password hash).
 const mapUser = (u: any) => ({
-    ...u,
-    isAdmin: u.is_admin,
-    joinedDate: Number(u.joined_date)
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    scenario: u.scenario,
+    stakeholder_id: u.stakeholder_id || undefined,
+    is_verified: Boolean(u.is_verified),
+    is_email_verified: Boolean(u.is_email_verified),
+    is_id_verified: Boolean(u.is_id_verified),
+    verification_status: u.verification_status || "None",
+    role: u.role ?? (u.is_admin ? "admin" : "user"),
+    is_admin: Boolean(u.is_admin),
+    isAdmin: Boolean(u.is_admin),
+    joinedDate: Number(u.joined_date || Date.now()),
+    country: u.country ?? null,
+    id_document_name: u.id_document_name ?? null
+});
+
+const mapPublicUser = (u: any) => ({
+    id: u.id,
+    name: u.name,
+    scenario: u.scenario,
+    stakeholder_id: u.stakeholder_id || undefined
 });
 
 const parseCookieHeader = (cookieHeader?: string): Record<string, string> => {
@@ -74,6 +94,9 @@ const hashToken = (token: string): string => {
 
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const turnstileEnabled = (process.env.TURNSTILE_ENABLED || "false").toLowerCase() === "true";
+const turnstileBypassInDev =
+    process.env.NODE_ENV === "development" &&
+    (process.env.TURNSTILE_ENFORCE_IN_DEV || "false").toLowerCase() !== "true";
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY || "";
 
 interface TurnstileVerificationResult {
@@ -118,6 +141,10 @@ const verifyTurnstileToken = async (token: string, remoteIp?: string): Promise<T
 
 const requireTurnstile = (expectedAction?: string) => {
     return async (req: Request, res: Response, next: NextFunction) => {
+        if (turnstileBypassInDev) {
+            return next();
+        }
+
         if (!turnstileEnabled) {
             return next();
         }
@@ -202,6 +229,25 @@ const sendVerificationEmail = async (email: string, name: string, verificationUr
             <p>This link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.</p>
         `
     });
+};
+
+const verifySmtpConnection = async (): Promise<void> => {
+    try {
+        const smtp = getSmtpConfig();
+        const transporter = nodemailer.createTransport({
+            host: smtp.host,
+            port: smtp.port,
+            secure: smtp.secure,
+            auth: {
+                user: smtp.user,
+                pass: smtp.pass
+            }
+        });
+        await transporter.verify();
+        console.log("SMTP connection verified successfully.");
+    } catch (err) {
+        console.error("SMTP verification failed. Email delivery will fail until fixed:", err);
+    }
 };
 
 const parseExpiryToMs = (expiry: string | number | undefined): number => {
@@ -292,7 +338,7 @@ const storeRefreshSession = async (
 };
 
 // GET all data
-app.get('/api/data', async (req: Request, res: Response) => {
+app.get('/api/data', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
     try {
         const stakeholders = await query('SELECT * FROM stakeholders');
         const users = await query('SELECT * FROM users');
@@ -418,11 +464,23 @@ app.post('/api/opportunities', authenticateToken, requireVerifiedUser, requireTu
 });
 
 // GET users
-app.get('/api/users', async (req: Request, res: Response) => {
+app.get('/api/users', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
     try {
         const result = await query('SELECT * FROM users');
         res.json(result.rows.map(mapUser));
     } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+// Public-safe user directory (minimal profile only).
+app.get('/api/users/public', async (req: Request, res: Response) => {
+    try {
+        const result = await query(
+            'SELECT id, name, scenario, stakeholder_id FROM users'
+        );
+        res.json(result.rows.map(mapPublicUser));
+    } catch {
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 });
@@ -637,10 +695,11 @@ app.post('/api/register', registerLimiter, requireTurnstile("register"), async (
             [randomUUID(), id, verificationTokenHash, expiresAt]
         );
 
-        const verificationUrl = buildEmailVerificationUrl(rawVerificationToken);
-        await sendVerificationEmail(email, name, verificationUrl);
         await client.query("COMMIT");
 
+        const verificationUrl = buildEmailVerificationUrl(rawVerificationToken);
+
+        // Respond immediately so registration UX is fast even if SMTP is slow.
         res.status(201).json({
             id,
             name,
@@ -649,7 +708,14 @@ app.post('/api/register', registerLimiter, requireTurnstile("register"), async (
             stakeholder_id,
             joinedDate,
             verification_required: true,
-            message: "Registration successful. Please verify your email within 15 minutes."
+            message: "Registration successful. Please verify your email within 15 minutes.",
+            ...(process.env.NODE_ENV === "development"
+                ? { verification_debug_url: verificationUrl }
+                : {})
+        });
+
+        void sendVerificationEmail(email, name, verificationUrl).catch((mailErr) => {
+            console.error("Verification email dispatch failed:", mailErr);
         });
     } catch (err) {
         try {
@@ -725,32 +791,158 @@ app.get('/api/auth/verify-email', verifyEmailLimiter, async (req: Request, res: 
     }
 });
 
+app.post('/api/auth/resend-verification', resendVerificationLimiter, authenticateToken, async (req: Request, res: Response) => {
+    if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const userId = req.user.id;
+    const client = await getClient();
+    try {
+        const userResult = await client.query(
+            `SELECT id, email, name, is_email_verified
+             FROM users
+             WHERE id = $1
+             LIMIT 1`,
+            [userId]
+        );
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const dbUser = userResult.rows[0];
+        if (Boolean(dbUser.is_email_verified)) {
+            return res.status(400).json({ error: "Email is already verified" });
+        }
+
+        const rawVerificationToken = randomBytes(32).toString("hex");
+        const verificationTokenHash = hashToken(rawVerificationToken);
+        const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MINUTES * 60 * 1000);
+
+        await client.query("BEGIN");
+        await client.query(
+            `UPDATE email_verification_tokens
+             SET used_at = NOW()
+             WHERE user_id = $1
+               AND used_at IS NULL`,
+            [userId]
+        );
+        await client.query(
+            `INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at)
+             VALUES ($1, $2, $3, $4)`,
+            [randomUUID(), userId, verificationTokenHash, expiresAt]
+        );
+        await client.query("COMMIT");
+
+        const verificationUrl = buildEmailVerificationUrl(rawVerificationToken);
+        await sendVerificationEmail(dbUser.email, dbUser.name || "User", verificationUrl);
+
+        return res.json({
+            success: true,
+            message: "Verification email sent.",
+            ...(process.env.NODE_ENV === "development" ? { verification_debug_url: verificationUrl } : {})
+        });
+    } catch (err) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // Ignore rollback errors to preserve original failure context.
+        }
+        console.error("Resend verification email failed:", err);
+        return res.status(500).json({ error: "Failed to send verification email" });
+    } finally {
+        client.release();
+    }
+});
+
 // PUT user
-app.put('/api/users/:id', async (req: Request, res: Response) => {
+app.put('/api/users/:id', authenticateToken, async (req: Request, res: Response) => {
     const { id } = req.params;
     const body = req.body;
     try {
-        // Simple dynamic update for demo purposes
-        const keys = Object.keys(body).filter(k => k !== 'isAdmin' && k !== 'joinedDate');
-        const setClause = keys.map((k, i) => `${k === 'name' ? 'name' : k} = $${i + 2}`).join(', ');
-        const values = keys.map(k => body[k]);
+        if (!req.user) {
+            return res.status(401).json({ error: "Authentication required" });
+        }
 
-        // Handle mapped fields
-        let mappedUpdate = '';
-           if (body.isAdmin !== undefined) {
-         mappedUpdate += `, is_admin = $${values.length + 2}`;
-        values.push(body.isAdmin);
-}
+        const isAdmin = req.user.role === "admin";
+        const isSelf = req.user.id === id;
 
-        await query(`UPDATE users SET ${setClause} ${mappedUpdate} WHERE id = $1`, [id, ...values]);
-        res.json({ message: 'User updated' });
+        if (!isAdmin && !isSelf) {
+            return res.status(403).json({ error: "Insufficient permissions" });
+        }
+
+        const adminAllowedColumns = new Set([
+            "name",
+            "email",
+            "scenario",
+            "stakeholder_id",
+            "is_verified",
+            "is_email_verified",
+            "is_id_verified",
+            "verification_status",
+            "is_admin",
+            "joined_date",
+            "country",
+            "id_document_name",
+            "role"
+        ]);
+
+        const selfAllowedColumns = new Set([
+            "name",
+            "id_document_name",
+            "verification_status"
+        ]);
+
+        const rawUpdates: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(body || {})) {
+            if (key === "isAdmin") {
+                rawUpdates["is_admin"] = value;
+                continue;
+            }
+            if (key === "joinedDate") {
+                rawUpdates["joined_date"] = value;
+                continue;
+            }
+            rawUpdates[key] = value;
+        }
+
+        const allowedKeys = Object.keys(rawUpdates).filter((key) =>
+            isAdmin ? adminAllowedColumns.has(key) : selfAllowedColumns.has(key)
+        );
+
+        if (allowedKeys.length === 0) {
+            return res.status(400).json({ error: "No permitted fields to update" });
+        }
+
+        if (!isAdmin && allowedKeys.includes("verification_status")) {
+            const requestedStatus = String(rawUpdates.verification_status || "");
+            const allowedSelfStatuses = new Set(["Pending Review", "Update Pending Review", "None"]);
+            if (!allowedSelfStatuses.has(requestedStatus)) {
+                return res.status(403).json({ error: "Invalid verification status transition" });
+            }
+        }
+
+        const setClause = allowedKeys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+        const values = allowedKeys.map((k) => rawUpdates[k]);
+
+        const result = await query(
+            `UPDATE users SET ${setClause} WHERE id = $1 RETURNING *`,
+            [id, ...values]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        res.json(mapUser(result.rows[0]));
     } catch (err) {
         res.status(500).json({ error: 'Update failed' });
     }
 });
 
 // DELETE user
-app.delete('/api/users/:id', async (req: Request, res: Response) => {
+app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         await query('DELETE FROM users WHERE id = $1', [id]);
@@ -1169,6 +1361,7 @@ const initAuthSchema = async () => {
   await initAuthSchema();
   await initStatsSchema();
   await initContent();
+  await verifySmtpConnection();
 
   app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);

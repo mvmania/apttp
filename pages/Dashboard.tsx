@@ -65,7 +65,7 @@ const Dashboard: React.FC = () => {
         const [techs, needs, usrs, orgs] = await Promise.all([
           apiService.getTechnologies(),
           apiService.getTechNeeds(),
-          apiService.getUsers(),
+          apiService.getPublicUsers(),
           apiService.getStakeholders()
         ]);
         setAllTechnologies(techs);
@@ -114,21 +114,16 @@ const Dashboard: React.FC = () => {
 
   const handleVerifyEmail = async () => {
     setIsVerifyingEmail(true);
-    // Simulate sending an email first
-    setTimeout(async () => {
-      try {
-        const updated = await apiService.updateUser(currentUser.id, { is_email_verified: true });
-        updateLocalUser(updated);
-        setVerificationSent(true);
-        // Reset the "sent" message after a few seconds
-        setTimeout(() => setVerificationSent(false), 5000);
-      } catch (error) {
-        console.error('Error verifying email:', error);
-        alert('Failed to verify email.');
-      } finally {
-        setIsVerifyingEmail(false);
-      }
-    }, 1500);
+    try {
+      await apiService.resendVerificationEmail();
+      setVerificationSent(true);
+      setTimeout(() => setVerificationSent(false), 5000);
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+      alert('Failed to send verification email. Please try again.');
+    } finally {
+      setIsVerifyingEmail(false);
+    }
   };
 
   const handleUploadID = async (e: React.ChangeEvent<HTMLInputElement>) => {

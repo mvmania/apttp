@@ -25,7 +25,7 @@ const NeedsDirectory: React.FC = () => {
         const [n, s, u] = await Promise.all([
           apiService.getTechNeeds(),
           apiService.getStakeholders(),
-          apiService.getUsers()
+          apiService.getPublicUsers()
         ]);
         setNeeds(n);
         setStakeholders(s);

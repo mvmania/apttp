@@ -39,7 +39,7 @@ const NeedDetail: React.FC = () => {
       try {
         const [needs, users, stakeholders] = await Promise.all([
           apiService.getTechNeeds(),
-          apiService.getUsers(),
+          apiService.getPublicUsers(),
           apiService.getStakeholders()
         ]);
 

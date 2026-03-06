@@ -58,8 +58,16 @@ export const apiService = {
     },
 
     async getUsers() {
-        const response = await fetch(`${API_URL}/users`);
+        const response = await fetch(`${API_URL}/users`, {
+            headers: { ...getAuthHeaders() }
+        });
         if (!response.ok) throw new Error('Failed to fetch users');
+        return response.json();
+    },
+
+    async getPublicUsers() {
+        const response = await fetch(`${API_URL}/users/public`);
+        if (!response.ok) throw new Error('Failed to fetch public users');
         return response.json();
     },
 
@@ -70,7 +78,9 @@ export const apiService = {
     },
 
     async getAllData() {
-        const response = await fetch(`${API_URL}/data`);
+        const response = await fetch(`${API_URL}/data`, {
+            headers: { ...getAuthHeaders() }
+        });
         if (!response.ok) throw new Error('Failed to fetch all data');
         return response.json();
     },
@@ -117,6 +127,17 @@ export const apiService = {
         });
         if (!response.ok) {
             throw new Error(await readErrorMessage(response, 'Failed to register'));
+        }
+        return response.json();
+    },
+
+    async resendVerificationEmail() {
+        const response = await fetch(`${API_URL}/auth/resend-verification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+        });
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Failed to resend verification email'));
         }
         return response.json();
     },
