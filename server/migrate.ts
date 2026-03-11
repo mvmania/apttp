@@ -30,7 +30,10 @@ async function migrate() {
         is_verified BOOLEAN DEFAULT false,
         key_tech_areas JSONB DEFAULT '[]',
         roles JSONB DEFAULT '[]',
-        investor_info JSONB
+        investor_info JSONB,
+        country TEXT,
+        approval_status TEXT DEFAULT 'approved',
+        moderation_updated_at TIMESTAMPTZ
       );
     `);
 
@@ -47,6 +50,7 @@ async function migrate() {
         is_id_verified BOOLEAN DEFAULT false,
         verification_status TEXT,
         is_admin BOOLEAN DEFAULT false,
+        role TEXT DEFAULT 'user',
         joined_date BIGINT
       );
     `);
@@ -66,7 +70,9 @@ async function migrate() {
         geographic_restrictions TEXT,
         disclosure_level TEXT,
         trl_level INTEGER,
-        image_url TEXT
+        image_url TEXT,
+        approval_status TEXT DEFAULT 'approved',
+        moderation_updated_at TIMESTAMPTZ
       );
     `);
 
@@ -80,7 +86,9 @@ async function migrate() {
         budget_range TEXT,
         deadline TEXT,
         status TEXT,
-        created_at BIGINT
+        created_at BIGINT,
+        approval_status TEXT DEFAULT 'approved',
+        moderation_updated_at TIMESTAMPTZ
       );
     `);
 
@@ -136,6 +144,52 @@ async function migrate() {
         expires_at TIMESTAMPTZ NOT NULL,
         used_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+        await query(`
+      CREATE TABLE IF NOT EXISTS co_admin_scopes (
+        id UUID PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        country TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (user_id, country)
+      );
+    `);
+
+        await query(`
+      CREATE TABLE IF NOT EXISTS approval_logs (
+        id UUID PRIMARY KEY,
+        actor_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        actor_role TEXT NOT NULL,
+        action TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        country TEXT,
+        note TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+        await query(`
+      CREATE TABLE IF NOT EXISTS role_upgrade_requests (
+        id UUID PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        requested_role TEXT NOT NULL,
+        requested_countries JSONB DEFAULT '[]'::jsonb,
+        status TEXT NOT NULL DEFAULT 'pending',
+        note TEXT,
+        reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+        requested_at TIMESTAMPTZ DEFAULT NOW(),
+        reviewed_at TIMESTAMPTZ
+      );
+    `);
+
+        await query(`
+      CREATE TABLE IF NOT EXISTS master_admin_transfers (
+        id UUID PRIMARY KEY,
+        from_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        to_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        transferred_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 

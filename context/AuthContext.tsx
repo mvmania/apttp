@@ -23,6 +23,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const toUserAccount = (u: any): UserAccount => {
+    const role = (u.role as 'user' | 'co_admin' | 'admin' | 'master_admin' | undefined) || (u.is_admin ? 'admin' : 'user');
+    const isAdmin = role === 'admin' || role === 'master_admin' || Boolean(u.isAdmin ?? u.is_admin);
     return {
       id: u.id,
       name: u.name || '',
@@ -34,7 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       is_id_verified: Boolean(u.is_id_verified),
       verification_status: (u.verification_status as VerificationStatus) || VerificationStatus.NONE,
       joinedDate: Number(u.joinedDate ?? u.joined_date ?? Date.now()),
-      isAdmin: Boolean(u.isAdmin ?? u.is_admin ?? u.role === 'admin')
+      isAdmin,
+      isCoAdmin: role === 'co_admin',
+      isMasterAdmin: role === 'master_admin',
+      role,
+      country: u.country ?? null
     };
   };
 

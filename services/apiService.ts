@@ -193,6 +193,158 @@ export const apiService = {
         });
         if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to update content'));
         return response.json();
+    },
+
+    async getModerationQueue() {
+        const response = await fetch(`${API_URL}/moderation/pending`, {
+            headers: { ...getAuthHeaders() }
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to fetch moderation queue'));
+        return response.json();
+    },
+
+    async approveTechnology(id: string, note?: string) {
+        const response = await fetch(`${API_URL}/moderation/technologies/${id}/approve`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ note })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to approve technology'));
+        return response.json();
+    },
+
+    async rejectTechnology(id: string, note?: string) {
+        const response = await fetch(`${API_URL}/moderation/technologies/${id}/reject`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ note })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to reject technology'));
+        return response.json();
+    },
+
+    async approveStakeholder(id: string, note?: string) {
+        const response = await fetch(`${API_URL}/moderation/stakeholders/${id}/approve`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ note })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to approve stakeholder'));
+        return response.json();
+    },
+
+    async rejectStakeholder(id: string, note?: string) {
+        const response = await fetch(`${API_URL}/moderation/stakeholders/${id}/reject`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ note })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to reject stakeholder'));
+        return response.json();
+    },
+
+    async approveTechNeed(id: string, note?: string) {
+        const response = await fetch(`${API_URL}/moderation/tech-needs/${id}/approve`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ note })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to approve tech need'));
+        return response.json();
+    },
+
+    async rejectTechNeed(id: string, note?: string) {
+        const response = await fetch(`${API_URL}/moderation/tech-needs/${id}/reject`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ note })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to reject tech need'));
+        return response.json();
+    },
+
+    async getCoAdminScopes() {
+        const response = await fetch(`${API_URL}/admin/co-admin-scopes`, {
+            headers: { ...getAuthHeaders() }
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to fetch co-admin scopes'));
+        return response.json();
+    },
+
+    async assignCoAdmin(userId: string, countries: string[]) {
+        const response = await fetch(`${API_URL}/admin/assign-co-admin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ userId, countries })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to assign co-admin'));
+        return response.json();
+    },
+
+    async revokeCoAdmin(userId: string) {
+        const response = await fetch(`${API_URL}/admin/revoke-co-admin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ userId })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to revoke co-admin'));
+        return response.json();
+    },
+
+    async createRoleRequest(requestedRole: 'co_admin' | 'admin', countries: string[] = []) {
+        const response = await fetch(`${API_URL}/role-requests`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ requestedRole, countries })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to create role request'));
+        return response.json();
+    },
+
+    async getMyRoleRequests() {
+        const response = await fetch(`${API_URL}/role-requests/mine`, {
+            headers: { ...getAuthHeaders() }
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to fetch your role requests'));
+        return response.json();
+    },
+
+    async getPendingRoleRequests() {
+        const response = await fetch(`${API_URL}/master-admin/role-requests`, {
+            headers: { ...getAuthHeaders() }
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to fetch pending role requests'));
+        return response.json();
+    },
+
+    async approveRoleRequest(id: string, note?: string) {
+        const response = await fetch(`${API_URL}/master-admin/role-requests/${id}/approve`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ note })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to approve role request'));
+        return response.json();
+    },
+
+    async rejectRoleRequest(id: string, note?: string) {
+        const response = await fetch(`${API_URL}/master-admin/role-requests/${id}/reject`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ note })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to reject role request'));
+        return response.json();
+    },
+
+    async transferMasterAdmin(newMasterUserId: string) {
+        const response = await fetch(`${API_URL}/master-admin/transfer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ newMasterUserId })
+        });
+        if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to transfer master admin role'));
+        return response.json();
     }
 };
 

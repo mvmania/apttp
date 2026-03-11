@@ -8,6 +8,7 @@ const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, logout, isLoggedIn } = useAuth();
+  const canModerate = Boolean(user?.isAdmin || user?.isCoAdmin || user?.role === 'admin' || user?.role === 'co_admin');
 
   const navItems = [
     { name: 'About', path: '/about' },
@@ -59,7 +60,7 @@ const Navbar: React.FC = () => {
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className="flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200"
                 >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs ${user?.isAdmin ? 'bg-slate-900' : user?.scenario.includes('Representative') ? 'bg-apctt-blue' : 'bg-slate-800'}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs ${user?.isAdmin ? 'bg-slate-900' : user?.isCoAdmin ? 'bg-indigo-700' : user?.scenario.includes('Representative') ? 'bg-apctt-blue' : 'bg-slate-800'}`}>
                     {user?.name.charAt(0)}
                   </div>
                   <span className="text-sm font-bold text-slate-700">{user?.name.split(' ')[0]}</span>
@@ -74,6 +75,11 @@ const Navbar: React.FC = () => {
                     <Link to="/dashboard" onClick={() => setIsProfileOpen(false)} className="flex items-center px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-apctt-light hover:text-apctt-blue transition-colors">
                       <LayoutDashboard className="w-4 h-4 mr-3" /> User Dashboard
                     </Link>
+                    {canModerate && (
+                      <Link to="/moderation" onClick={() => setIsProfileOpen(false)} className="flex items-center px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors font-black uppercase tracking-wider">
+                        <ShieldCheck className="w-4 h-4 mr-3" /> Moderation
+                      </Link>
+                    )}
 
                     {/* Admin Access: Only for specific staff with isAdmin flag */}
                     {user?.isAdmin && (
@@ -129,6 +135,11 @@ const Navbar: React.FC = () => {
               <Link to="/dashboard" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-blue-600 bg-blue-50">
                 User Dashboard
               </Link>
+              {canModerate && (
+                <Link to="/moderation" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-emerald-700 bg-emerald-50">
+                  Moderation
+                </Link>
+              )}
               {user?.isAdmin && (
                 <Link to="/admin" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-indigo-600 bg-indigo-50">
                   Admin Console

@@ -27,6 +27,7 @@ import RegisterNeed from './pages/RegisterNeed';
 import RegisterOpportunity from './pages/RegisterOpportunity';
 import ChatRoomPage from './pages/ChatRoomPage';
 import AdminDashboard from './pages/AdminDashboard';
+import ModerationDashboard from './pages/ModerationDashboard';
 import TermsOfService from './pages/TermsOfService';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 
@@ -59,6 +60,7 @@ const App: React.FC = () => {
                       <Route path="/register" element={<Register />} />
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/admin" element={<AdminDashboard />} />
+                      <Route path="/moderation" element={<ModerationDashboard />} />
                       <Route path="/register-tech" element={<RegisterTechnology />} />
                       <Route path="/register-need" element={<RegisterNeed />} />
                       <Route path="/register-opportunity" element={<RegisterOpportunity />} />

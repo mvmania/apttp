@@ -72,6 +72,10 @@ export interface UserAccount {
   avatarUrl?: string;
   joinedDate: number;
   isAdmin?: boolean;
+  isCoAdmin?: boolean;
+  isMasterAdmin?: boolean;
+  role?: 'user' | 'co_admin' | 'admin' | 'master_admin';
+  country?: string | null;
 }
 
 export interface Technology {
@@ -91,6 +95,8 @@ export interface Technology {
   image_url?: string;
   videoUrl?: string;
   trl_level?: number;
+  approval_status?: 'pending' | 'approved' | 'rejected';
+  country?: string | null;
 }
 
 export interface TechNeed {
@@ -103,6 +109,8 @@ export interface TechNeed {
   deadline?: string;
   status: 'open' | 'closed';
   createdAt: number;
+  approval_status?: 'pending' | 'approved' | 'rejected';
+  country?: string | null;
 }
 
 export interface Message {

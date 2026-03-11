@@ -1,13 +1,12 @@
 
 import bcrypt from "bcrypt";
-import { createHash, randomBytes, randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "./utils/jwt.js";
 import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import nodemailer from "nodemailer";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +15,15 @@ import { isStrongPassword } from "./utils/validatePassword.js";
 import { securityConfig } from "./config/security.js";
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { requireAdmin, requireVerifiedUser } from "./middleware/roleMiddleware.js";
+import {
+    buildEmailVerificationUrl,
+    createEmailVerificationToken,
+    emailVerificationRouter,
+    sendVerificationEmail,
+    verifyEmailProviderConnection
+} from "./routes/emailVerification.js";
+import { initModerationSchema, moderationRouter } from "./routes/moderation.js";
+import { initRoleRequestSchema, roleRequestsRouter } from "./routes/roleRequests.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,10 +55,11 @@ const authLimiterBase = {
 const loginLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.loginMax });
 const registerLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.registerMax });
 const refreshLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.refreshMax });
-const verifyEmailLimiter = rateLimit({ ...authLimiterBase, max: 20 });
-const resendVerificationLimiter = rateLimit({ ...authLimiterBase, max: 5 });
 
 app.use("/api", globalLimiter);
+app.use(emailVerificationRouter);
+app.use(moderationRouter);
+app.use(roleRequestsRouter);
 
 // Helper to map DB users to frontend-safe format (never expose password hash).
 const mapUser = (u: any) => ({
@@ -64,8 +73,10 @@ const mapUser = (u: any) => ({
     is_id_verified: Boolean(u.is_id_verified),
     verification_status: u.verification_status || "None",
     role: u.role ?? (u.is_admin ? "admin" : "user"),
-    is_admin: Boolean(u.is_admin),
-    isAdmin: Boolean(u.is_admin),
+    isCoAdmin: (u.role ?? (u.is_admin ? "admin" : "user")) === "co_admin",
+    is_admin: Boolean(u.is_admin) || ["admin", "master_admin"].includes(u.role ?? "user"),
+    isAdmin: Boolean(u.is_admin) || ["admin", "master_admin"].includes(u.role ?? "user"),
+    isMasterAdmin: (u.role ?? "user") === "master_admin",
     joinedDate: Number(u.joined_date || Date.now()),
     country: u.country ?? null,
     id_document_name: u.id_document_name ?? null
@@ -179,76 +190,6 @@ const requireTurnstile = (expectedAction?: string) => {
     };
 };
 
-const EMAIL_VERIFICATION_TTL_MINUTES = 15;
-
-const buildEmailVerificationUrl = (token: string): string => {
-    const backendBaseUrl = process.env.BACKEND_BASE_URL || `http://localhost:${PORT}`;
-    const normalizedBaseUrl = backendBaseUrl.replace(/\/+$/, "");
-    return `${normalizedBaseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
-};
-
-const getSmtpConfig = () => {
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
-
-    if (!smtpUser || !smtpPass) {
-        throw new Error("SMTP_USER and SMTP_PASS must be configured for email verification.");
-    }
-
-    return {
-        host: process.env.SMTP_HOST || "smtp.gmail.com",
-        port: Number(process.env.SMTP_PORT || 587),
-        secure: (process.env.SMTP_SECURE || "false").toLowerCase() === "true",
-        user: smtpUser,
-        pass: smtpPass,
-        from: process.env.SMTP_FROM || smtpUser
-    };
-};
-
-const sendVerificationEmail = async (email: string, name: string, verificationUrl: string): Promise<void> => {
-    const smtp = getSmtpConfig();
-    const transporter = nodemailer.createTransport({
-        host: smtp.host,
-        port: smtp.port,
-        secure: smtp.secure,
-        auth: {
-            user: smtp.user,
-            pass: smtp.pass
-        }
-    });
-
-    await transporter.sendMail({
-        from: smtp.from,
-        to: email,
-        subject: "Verify your email address",
-        text: `Hi ${name},\n\nPlease verify your email by clicking this link:\n${verificationUrl}\n\nThis link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.\n`,
-        html: `
-            <p>Hi ${name},</p>
-            <p>Please verify your email by clicking the link below:</p>
-            <p><a href="${verificationUrl}">${verificationUrl}</a></p>
-            <p>This link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.</p>
-        `
-    });
-};
-
-const verifySmtpConnection = async (): Promise<void> => {
-    try {
-        const smtp = getSmtpConfig();
-        const transporter = nodemailer.createTransport({
-            host: smtp.host,
-            port: smtp.port,
-            secure: smtp.secure,
-            auth: {
-                user: smtp.user,
-                pass: smtp.pass
-            }
-        });
-        await transporter.verify();
-        console.log("SMTP connection verified successfully.");
-    } catch (err) {
-        console.error("SMTP verification failed. Email delivery will fail until fixed:", err);
-    }
-};
 
 const parseExpiryToMs = (expiry: string | number | undefined): number => {
     if (typeof expiry === "number") return expiry * 1000;
@@ -361,7 +302,7 @@ app.get('/api/data', authenticateToken, requireAdmin, async (req: Request, res: 
 // GET stakeholders
 app.get('/api/stakeholders', async (req: Request, res: Response) => {
     try {
-        const result = await query('SELECT * FROM stakeholders');
+        const result = await query(`SELECT * FROM stakeholders WHERE approval_status = 'approved'`);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch stakeholders' });
@@ -371,7 +312,7 @@ app.get('/api/stakeholders', async (req: Request, res: Response) => {
 // GET technologies
 app.get('/api/technologies', async (req: Request, res: Response) => {
     try {
-        const result = await query('SELECT * FROM technologies');
+        const result = await query(`SELECT * FROM technologies WHERE approval_status = 'approved'`);
         res.json(result.rows.map(t => ({ ...t, imageUrl: t.image_url })));
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch technologies' });
@@ -388,15 +329,15 @@ app.post('/api/technologies', authenticateToken, requireVerifiedUser, requireTur
                 id, name, stakeholder_id, tech_category_id, tech_sub_category_id, 
                 description, ip_status, patent_number, ip_owner, 
                 licensing_availability, geographic_restrictions, 
-                disclosure_level, trl_level, image_url
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                disclosure_level, trl_level, image_url, approval_status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         `, [
             id, t.name, t.stakeholder_id, t.tech_category_id, t.tech_sub_category_id,
             t.description, t.ip_status, t.patent_number, t.ip_owner,
             t.licensing_availability, t.geographic_restrictions,
-            t.disclosure_level, t.trl_level, t.imageUrl
+            t.disclosure_level, t.trl_level, t.imageUrl, "pending"
         ]);
-        res.status(201).json({ ...t, id });
+        res.status(201).json({ ...t, id, approval_status: "pending" });
     } catch (err) {
         res.status(500).json({ error: 'Failed to create technology' });
     }
@@ -405,7 +346,7 @@ app.post('/api/technologies', authenticateToken, requireVerifiedUser, requireTur
 // GET tech needs
 app.get('/api/tech-needs', async (req: Request, res: Response) => {
     try {
-        const result = await query('SELECT * FROM tech_needs');
+        const result = await query(`SELECT * FROM tech_needs WHERE approval_status = 'approved'`);
         res.json(result.rows.map(n => ({ ...n, createdAt: Number(n.created_at) })));
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch tech needs' });
@@ -421,13 +362,13 @@ app.post('/api/tech-needs', authenticateToken, requireVerifiedUser, requireTurns
         await query(`
             INSERT INTO tech_needs (
                 id, seeker_id, title, description, industry, 
-                budget_range, deadline, status, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                budget_range, deadline, status, created_at, approval_status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `, [
             id, n.seeker_id, n.title, n.description, n.industry,
-            n.budget_range, n.deadline, n.status || 'open', createdAt
+            n.budget_range, n.deadline, n.status || 'open', createdAt, "pending"
         ]);
-        res.status(201).json({ ...n, id, createdAt });
+        res.status(201).json({ ...n, id, createdAt, approval_status: "pending" });
     } catch (err) {
         res.status(500).json({ error: 'Failed to create tech need' });
     }
@@ -502,12 +443,15 @@ app.post("/api/login", loginLimiter, requireTurnstile("login"), async (req: Requ
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    const resolvedRole = user.role ?? (user.is_admin ? "admin" : "user");
+    const isAdminRole = resolvedRole === "admin" || resolvedRole === "master_admin" || Boolean(user.is_admin);
+
     const accessToken = generateAccessToken({
       id: user.id,
       email: user.email,
-      role: user.role ?? (user.is_admin ? "admin" : "user"),
+      role: resolvedRole,
       is_email_verified: Boolean(user.is_email_verified),
-      is_admin: Boolean(user.is_admin),
+      is_admin: isAdminRole,
     });
 
     const refreshTokenJti = randomUUID();
@@ -524,13 +468,16 @@ app.post("/api/login", loginLimiter, requireTurnstile("login"), async (req: Requ
         scenario: user.scenario,
         stakeholder_id: user.stakeholder_id || undefined,
         is_verified: Boolean(user.is_verified),
-        role: user.role ?? (user.is_admin ? "admin" : "user"),
+        role: resolvedRole,
+        isCoAdmin: resolvedRole === "co_admin",
+        isMasterAdmin: resolvedRole === "master_admin",
         is_email_verified: Boolean(user.is_email_verified),
         is_id_verified: Boolean(user.is_id_verified),
         verification_status: user.verification_status || "None",
-        is_admin: Boolean(user.is_admin),
-        isAdmin: Boolean(user.is_admin),
+        is_admin: isAdminRole,
+        isAdmin: isAdminRole,
         joinedDate: Number(user.joined_date || Date.now()),
+        country: user.country ?? null
       },
     });
   } catch (err) {
@@ -587,6 +534,8 @@ app.post("/api/refresh-token", refreshLimiter, async (req: Request, res: Respons
         }
 
         const user = result.rows[0];
+        const resolvedRole = user.role ?? (user.is_admin ? "admin" : "user");
+        const isAdminRole = resolvedRole === "admin" || resolvedRole === "master_admin" || Boolean(user.is_admin);
         const newRefreshJti = randomUUID();
         const newRefreshToken = generateRefreshToken(user.id, newRefreshJti);
 
@@ -600,9 +549,9 @@ app.post("/api/refresh-token", refreshLimiter, async (req: Request, res: Respons
         const newAccessToken = generateAccessToken({
             id: user.id,
             email: user.email,
-            role: user.role ?? (user.is_admin ? "admin" : "user"),
+            role: resolvedRole,
             is_email_verified: Boolean(user.is_email_verified),
-            is_admin: Boolean(user.is_admin),
+            is_admin: isAdminRole,
         });
 
         return res.json({ accessToken: newAccessToken });
@@ -664,11 +613,11 @@ app.post('/api/register', registerLimiter, requireTurnstile("register"), async (
             stakeholder_id = `s${Date.now()}`;
             await client.query(`
                 INSERT INTO stakeholders (
-                    stakeholder_id, name, category, website, description, is_verified, roles
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    stakeholder_id, name, category, website, description, is_verified, roles, approval_status
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             `, [
                 stakeholder_id, orgName, orgCategory, orgWebsite,
-                `Registered via platform by ${name}`, false, JSON.stringify(['Provider'])
+                `Registered via platform by ${name}`, false, JSON.stringify(['Provider']), 'pending'
             ]);
         }
 
@@ -678,22 +627,14 @@ app.post('/api/register', registerLimiter, requireTurnstile("register"), async (
             INSERT INTO users (
                 id, name, email, password, scenario, stakeholder_id, 
                 is_verified, is_email_verified, is_id_verified, 
-                verification_status, is_admin, joined_date, country
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                verification_status, is_admin, role, joined_date, country
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         `, [
             id, name, email, hashedPassword, scenario, stakeholder_id,
-            false, false, false, 'None', false, joinedDate, country || null
+            false, false, false, 'None', false, "user", joinedDate, country || null
         ]);
 
-        const rawVerificationToken = randomBytes(32).toString("hex");
-        const verificationTokenHash = hashToken(rawVerificationToken);
-        const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MINUTES * 60 * 1000);
-
-        await client.query(
-            `INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at)
-             VALUES ($1, $2, $3, $4)`,
-            [randomUUID(), id, verificationTokenHash, expiresAt]
-        );
+        const rawVerificationToken = await createEmailVerificationToken(client, id);
 
         await client.query("COMMIT");
 
@@ -728,129 +669,6 @@ app.post('/api/register', registerLimiter, requireTurnstile("register"), async (
         res.status(500).json({
             error: process.env.NODE_ENV === 'development' ? message : 'Registration failed'
         });
-    } finally {
-        client.release();
-    }
-});
-
-app.get('/api/auth/verify-email', verifyEmailLimiter, async (req: Request, res: Response) => {
-    const token = String(req.query.token || "").trim();
-    if (!token) {
-        return res.status(400).json({ error: "Verification token is required" });
-    }
-
-    const tokenHash = hashToken(token);
-    const client = await getClient();
-    try {
-        await client.query("BEGIN");
-
-        const tokenResult = await client.query(
-            `SELECT id, user_id
-             FROM email_verification_tokens
-             WHERE token_hash = $1
-               AND used_at IS NULL
-               AND expires_at > NOW()
-             ORDER BY created_at DESC
-             LIMIT 1
-             FOR UPDATE`,
-            [tokenHash]
-        );
-
-        if (tokenResult.rows.length === 0) {
-            await client.query("ROLLBACK");
-            return res.status(400).json({ error: "Invalid or expired verification token" });
-        }
-
-        const tokenRow = tokenResult.rows[0];
-        await client.query(
-            `UPDATE email_verification_tokens
-             SET used_at = NOW()
-             WHERE id = $1`,
-            [tokenRow.id]
-        );
-
-        await client.query(
-            `UPDATE users
-             SET is_email_verified = TRUE
-             WHERE id = $1`,
-            [tokenRow.user_id]
-        );
-
-        await client.query("COMMIT");
-        return res.json({ success: true, message: "Email verified successfully" });
-    } catch (err) {
-        try {
-            await client.query("ROLLBACK");
-        } catch {
-            // Ignore rollback errors to preserve the original failure context.
-        }
-        console.error("Email verification failed:", err);
-        return res.status(500).json({ error: "Email verification failed" });
-    } finally {
-        client.release();
-    }
-});
-
-app.post('/api/auth/resend-verification', resendVerificationLimiter, authenticateToken, async (req: Request, res: Response) => {
-    if (!req.user) {
-        return res.status(401).json({ error: "Authentication required" });
-    }
-
-    const userId = req.user.id;
-    const client = await getClient();
-    try {
-        const userResult = await client.query(
-            `SELECT id, email, name, is_email_verified
-             FROM users
-             WHERE id = $1
-             LIMIT 1`,
-            [userId]
-        );
-
-        if (userResult.rows.length === 0) {
-            return res.status(404).json({ error: "User not found" });
-        }
-
-        const dbUser = userResult.rows[0];
-        if (Boolean(dbUser.is_email_verified)) {
-            return res.status(400).json({ error: "Email is already verified" });
-        }
-
-        const rawVerificationToken = randomBytes(32).toString("hex");
-        const verificationTokenHash = hashToken(rawVerificationToken);
-        const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MINUTES * 60 * 1000);
-
-        await client.query("BEGIN");
-        await client.query(
-            `UPDATE email_verification_tokens
-             SET used_at = NOW()
-             WHERE user_id = $1
-               AND used_at IS NULL`,
-            [userId]
-        );
-        await client.query(
-            `INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at)
-             VALUES ($1, $2, $3, $4)`,
-            [randomUUID(), userId, verificationTokenHash, expiresAt]
-        );
-        await client.query("COMMIT");
-
-        const verificationUrl = buildEmailVerificationUrl(rawVerificationToken);
-        await sendVerificationEmail(dbUser.email, dbUser.name || "User", verificationUrl);
-
-        return res.json({
-            success: true,
-            message: "Verification email sent.",
-            ...(process.env.NODE_ENV === "development" ? { verification_debug_url: verificationUrl } : {})
-        });
-    } catch (err) {
-        try {
-            await client.query("ROLLBACK");
-        } catch {
-            // Ignore rollback errors to preserve original failure context.
-        }
-        console.error("Resend verification email failed:", err);
-        return res.status(500).json({ error: "Failed to send verification email" });
     } finally {
         client.release();
     }
@@ -989,31 +807,33 @@ app.post('/api/technologies/import', authenticateToken, requireAdmin, async (req
     try {
         // 1. Ensure Stakeholder exists
         await query(`
-            INSERT INTO stakeholders (stakeholder_id, name, category, website, contact_email, is_verified, roles)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO stakeholders (stakeholder_id, name, category, website, contact_email, is_verified, roles, approval_status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (stakeholder_id) DO UPDATE SET 
                 name = EXCLUDED.name,
                 website = COALESCE(NULLIF(EXCLUDED.website, ''), stakeholders.website),
-                contact_email = COALESCE(NULLIF(EXCLUDED.contact_email, ''), stakeholders.contact_email)
+                contact_email = COALESCE(NULLIF(EXCLUDED.contact_email, ''), stakeholders.contact_email),
+                approval_status = 'approved'
         `, [
             stakeholder.stakeholder_id, stakeholder.name, stakeholder.category,
-            stakeholder.website || '', stakeholder.contact_email, true, JSON.stringify(['Provider'])
+            stakeholder.website || '', stakeholder.contact_email, true, JSON.stringify(['Provider']), 'approved'
         ]);
 
         // 2. Insert Technology
         await query(`
-            INSERT INTO technologies (id, name, stakeholder_id, tech_category_id, description, ip_status, patent_number, trl_level, image_url)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO technologies (id, name, stakeholder_id, tech_category_id, description, ip_status, patent_number, trl_level, image_url, approval_status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT (id) DO UPDATE SET 
               name = EXCLUDED.name,
               description = EXCLUDED.description,
               trl_level = EXCLUDED.trl_level,
               patent_number = EXCLUDED.patent_number,
               ip_status = EXCLUDED.ip_status,
-              image_url = EXCLUDED.image_url
+              image_url = EXCLUDED.image_url,
+              approval_status = 'approved'
         `, [
             tech.id, tech.name, tech.stakeholder_id, tech.tech_category_id,
-            tech.description, tech.ip_status, tech.patent_number, tech.trl_level, tech.image_url
+            tech.description, tech.ip_status, tech.patent_number, tech.trl_level, tech.image_url, 'approved'
         ]);
 
         res.json({ success: true, id: tech.id });
@@ -1107,8 +927,14 @@ app.put('/api/content/:key', authenticateToken, requireAdmin, async (req: Reques
 app.get('/api/search', async (req: Request, res: Response) => {
     const q = (req.query.q as string || '').toLowerCase();
     try {
-        const techs = await query("SELECT * FROM technologies WHERE LOWER(name) LIKE $1 OR LOWER(description) LIKE $1", [`%${q}%`]);
-        const stakeholders = await query("SELECT * FROM stakeholders WHERE LOWER(name) LIKE $1 OR LOWER(description) LIKE $1", [`%${q}%`]);
+        const techs = await query(
+            "SELECT * FROM technologies WHERE approval_status = 'approved' AND (LOWER(name) LIKE $1 OR LOWER(description) LIKE $1)",
+            [`%${q}%`]
+        );
+        const stakeholders = await query(
+            "SELECT * FROM stakeholders WHERE approval_status = 'approved' AND (LOWER(name) LIKE $1 OR LOWER(description) LIKE $1)",
+            [`%${q}%`]
+        );
         res.json([...techs.rows, ...stakeholders.rows]);
     } catch (err) {
         res.status(500).json({ error: 'Search failed' });
@@ -1290,6 +1116,8 @@ const initStatsSchema = async () => {
         // 1. Add country to users
         try {
             await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT`);
+            await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'`);
+            await query(`UPDATE users SET role = CASE WHEN is_admin IS TRUE THEN 'admin' ELSE 'user' END WHERE role IS NULL OR TRIM(role) = ''`);
         } catch (e) { console.log('User country column might exist'); }
 
         // 2. Add country to stakeholders
@@ -1360,8 +1188,10 @@ const initAuthSchema = async () => {
 (async () => {
   await initAuthSchema();
   await initStatsSchema();
+  await initModerationSchema();
+  await initRoleRequestSchema();
   await initContent();
-  await verifySmtpConnection();
+  await verifyEmailProviderConnection();
 
   app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);

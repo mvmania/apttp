@@ -40,6 +40,16 @@ import {
 } from 'lucide-react';
 import { TRL_DEFINITIONS, getTrlColor } from '../constants';
 
+type RoleRequestItem = {
+  id: string;
+  requested_role: 'co_admin' | 'admin';
+  requested_countries?: string[];
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+  reviewed_at?: string;
+  note?: string | null;
+};
+
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const { chatRooms } = useChat();
@@ -58,20 +68,26 @@ const Dashboard: React.FC = () => {
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [requestedRole, setRequestedRole] = useState<'co_admin' | 'admin'>('co_admin');
+  const [requestCountries, setRequestCountries] = useState('');
+  const [requestingRole, setRequestingRole] = useState(false);
+  const [myRoleRequests, setMyRoleRequests] = useState<RoleRequestItem[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [techs, needs, usrs, orgs] = await Promise.all([
+        const [techs, needs, usrs, orgs, requests] = await Promise.all([
           apiService.getTechnologies(),
           apiService.getTechNeeds(),
           apiService.getPublicUsers(),
-          apiService.getStakeholders()
+          apiService.getStakeholders(),
+          apiService.getMyRoleRequests()
         ]);
         setAllTechnologies(techs);
         setAllNeeds(needs || []);
         setAllUsers(usrs);
         setAllStakeholders(orgs);
+        setMyRoleRequests(requests || []);
 
         const savedUser = localStorage.getItem('apctt_user_account');
         if (savedUser) {
@@ -153,6 +169,26 @@ const Dashboard: React.FC = () => {
       alert('Failed to submit for review.');
     } finally {
       setUploadingDoc(false);
+    }
+  };
+
+  const handleRequestRole = async () => {
+    setRequestingRole(true);
+    try {
+      const countries = requestCountries
+        .split(',')
+        .map((c) => c.trim())
+        .filter((c) => c.length > 0);
+      await apiService.createRoleRequest(requestedRole, countries);
+      const requests = await apiService.getMyRoleRequests();
+      setMyRoleRequests(requests || []);
+      setRequestCountries('');
+      alert('Role request submitted. Master admin review is required.');
+    } catch (error) {
+      console.error('Failed to request role:', error);
+      alert('Failed to submit role request.');
+    } finally {
+      setRequestingRole(false);
     }
   };
 
@@ -262,6 +298,65 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {!currentUser.isAdmin && !currentUser.isMasterAdmin && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-8">
+          <h2 className="text-lg font-bold text-slate-900 mb-2">Request Governance Role</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Request to become co-admin or admin. Only master admin can approve.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+              Requested Role
+              <select
+                value={requestedRole}
+                onChange={(e) => setRequestedRole(e.target.value as 'co_admin' | 'admin')}
+                className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
+              >
+                <option value="co_admin">Co-Admin</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest md:col-span-2">
+              Countries (required for Co-Admin)
+              <input
+                value={requestCountries}
+                onChange={(e) => setRequestCountries(e.target.value)}
+                placeholder="India, Japan"
+                className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
+              />
+            </label>
+            <button
+              disabled={requestingRole}
+              onClick={handleRequestRole}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold px-4 py-2.5 rounded-xl text-sm"
+            >
+              {requestingRole ? 'Submitting...' : 'Submit Request'}
+            </button>
+          </div>
+
+          <div className="mt-4">
+            <h3 className="text-sm font-bold text-slate-700 mb-2">My Requests</h3>
+            <div className="space-y-2">
+              {myRoleRequests.slice(0, 5).map((r) => (
+                <div key={r.id} className="border border-slate-100 rounded-xl p-3 text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-slate-800">{r.requested_role}</span>
+                    <span className="text-slate-500 ml-2">{new Date(r.requested_at).toLocaleString()}</span>
+                    {Array.isArray(r.requested_countries) && r.requested_countries.length > 0 && (
+                      <span className="text-slate-500 ml-2">({r.requested_countries.join(', ')})</span>
+                    )}
+                  </div>
+                  <span className={`text-xs font-black uppercase tracking-widest px-2 py-1 rounded-full self-start ${r.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : r.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+                    {r.status}
+                  </span>
+                </div>
+              ))}
+              {myRoleRequests.length === 0 && <div className="text-sm text-slate-500">No role requests yet.</div>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <aside className="lg:col-span-1">

@@ -47,6 +47,11 @@ const AdminDashboard: React.FC = () => {
   const [technologies, setTechnologies] = useState<Technology[]>([]);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [users, setUsers] = useState<UserAccount[]>([]);
+  const [coAdminScopes, setCoAdminScopes] = useState<Array<{ user_id: string; country: string }>>([]);
+  const [coAdminCountryInput, setCoAdminCountryInput] = useState<Record<string, string>>({});
+  const [pendingRoleRequests, setPendingRoleRequests] = useState<any[]>([]);
+  const [masterTransferTarget, setMasterTransferTarget] = useState('');
+  const [processingMasterAction, setProcessingMasterAction] = useState(false);
   const [contentList, setContentList] = useState<any[]>([]);
   const [editingContent, setEditingContent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +77,18 @@ const AdminDashboard: React.FC = () => {
         setStakeholders(s);
         setUsers(u);
         setContentList(c);
+
+        if (user?.role === 'master_admin') {
+          const [scopes, requests] = await Promise.all([
+            apiService.getCoAdminScopes(),
+            apiService.getPendingRoleRequests()
+          ]);
+          setCoAdminScopes(scopes || []);
+          setPendingRoleRequests(requests || []);
+        } else {
+          setCoAdminScopes([]);
+          setPendingRoleRequests([]);
+        }
       } catch (error) {
         console.error('Error fetching admin data:', error);
       } finally {
@@ -254,6 +271,110 @@ const AdminDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error toggling admin:', error);
       alert('Failed to update admin status.');
+    }
+  };
+
+  const handleAssignCoAdmin = async (u: UserAccount) => {
+    const raw = coAdminCountryInput[u.id] || '';
+    const countries = raw
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0);
+
+    if (countries.length === 0) {
+      alert('Please provide at least one country (comma-separated).');
+      return;
+    }
+
+    try {
+      await apiService.assignCoAdmin(u.id, countries);
+      const [updatedUsers, scopes] = await Promise.all([
+        apiService.getUsers(),
+        apiService.getCoAdminScopes()
+      ]);
+      setUsers(updatedUsers);
+      setCoAdminScopes(scopes);
+      setCoAdminCountryInput((prev) => ({ ...prev, [u.id]: '' }));
+      alert(`${u.name} is now a co-admin.`);
+    } catch (error) {
+      console.error('Error assigning co-admin:', error);
+      alert('Failed to assign co-admin.');
+    }
+  };
+
+  const handleRevokeCoAdmin = async (u: UserAccount) => {
+    try {
+      await apiService.revokeCoAdmin(u.id);
+      const [updatedUsers, scopes] = await Promise.all([
+        apiService.getUsers(),
+        apiService.getCoAdminScopes()
+      ]);
+      setUsers(updatedUsers);
+      setCoAdminScopes(scopes);
+      alert(`${u.name} is no longer a co-admin.`);
+    } catch (error) {
+      console.error('Error revoking co-admin:', error);
+      alert('Failed to revoke co-admin.');
+    }
+  };
+
+  const refreshMasterPanels = async () => {
+    if (user?.role !== 'master_admin') return;
+    const [updatedUsers, scopes, requests] = await Promise.all([
+      apiService.getUsers(),
+      apiService.getCoAdminScopes(),
+      apiService.getPendingRoleRequests()
+    ]);
+    setUsers(updatedUsers);
+    setCoAdminScopes(scopes || []);
+    setPendingRoleRequests(requests || []);
+  };
+
+  const handleApproveRoleRequest = async (requestId: string) => {
+    try {
+      setProcessingMasterAction(true);
+      await apiService.approveRoleRequest(requestId);
+      await refreshMasterPanels();
+      alert('Role request approved.');
+    } catch (error) {
+      console.error('Error approving role request:', error);
+      alert('Failed to approve role request.');
+    } finally {
+      setProcessingMasterAction(false);
+    }
+  };
+
+  const handleRejectRoleRequest = async (requestId: string) => {
+    try {
+      setProcessingMasterAction(true);
+      await apiService.rejectRoleRequest(requestId);
+      await refreshMasterPanels();
+      alert('Role request rejected.');
+    } catch (error) {
+      console.error('Error rejecting role request:', error);
+      alert('Failed to reject role request.');
+    } finally {
+      setProcessingMasterAction(false);
+    }
+  };
+
+  const handleTransferMasterRole = async () => {
+    if (!masterTransferTarget.trim()) {
+      alert('Please enter a target user ID.');
+      return;
+    }
+    if (!window.confirm('Transfer master admin role now? This action has a 7-day cooldown.')) return;
+
+    try {
+      setProcessingMasterAction(true);
+      await apiService.transferMasterAdmin(masterTransferTarget.trim());
+      alert('Master admin role transferred. Please re-login.');
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error transferring master role:', error);
+      alert('Failed to transfer master role.');
+    } finally {
+      setProcessingMasterAction(false);
     }
   };
 
@@ -472,6 +593,68 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
+            {user.role === 'master_admin' && (
+              <div className="px-10 py-8 border-b border-slate-100 space-y-6 bg-slate-50/40">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-500 mb-3">Pending Role Requests</h3>
+                  <div className="space-y-2">
+                    {pendingRoleRequests.map((request) => (
+                      <div key={request.id} className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div className="text-sm">
+                          <span className="font-bold text-slate-900">{request.name}</span>
+                          <span className="text-slate-500 ml-2">{request.email}</span>
+                          <span className="ml-3 text-xs font-black uppercase tracking-widest text-indigo-700 bg-indigo-50 px-2 py-1 rounded-full">
+                            {request.requested_role}
+                          </span>
+                          {Array.isArray(request.requested_countries) && request.requested_countries.length > 0 && (
+                            <span className="text-slate-500 ml-2">({request.requested_countries.join(', ')})</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            disabled={processingMasterAction}
+                            onClick={() => handleApproveRoleRequest(request.id)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            disabled={processingMasterAction}
+                            onClick={() => handleRejectRoleRequest(request.id)}
+                            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingRoleRequests.length === 0 && (
+                      <div className="text-sm text-slate-500">No pending role requests.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-500 mb-2">Transfer Master Role (Weekly)</h3>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      value={masterTransferTarget}
+                      onChange={(e) => setMasterTransferTarget(e.target.value)}
+                      placeholder="Target user id"
+                      className="px-3 py-2 rounded-xl border border-slate-200 text-sm min-w-[220px]"
+                    />
+                    <button
+                      disabled={processingMasterAction}
+                      onClick={handleTransferMasterRole}
+                      className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold"
+                    >
+                      Transfer Master Role
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -508,14 +691,19 @@ const AdminDashboard: React.FC = () => {
                       </td>
                       <td className="px-10 py-8">
                         <div className="flex items-center gap-2">
-                          <ShieldCheck size={16} className={u.isAdmin ? 'text-indigo-600' : 'text-slate-300'} />
-                          <span className={`text-xs font-black uppercase tracking-widest ${u.isAdmin ? 'text-indigo-600' : 'text-slate-400'}`}>
-                            {u.isAdmin ? 'Administrator' : 'Standard User'}
+                          <ShieldCheck size={16} className={u.isAdmin ? 'text-indigo-600' : u.isCoAdmin ? 'text-emerald-600' : 'text-slate-300'} />
+                          <span className={`text-xs font-black uppercase tracking-widest ${u.isAdmin ? 'text-indigo-600' : u.isCoAdmin ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {u.isAdmin ? 'Administrator' : u.isCoAdmin ? 'Co-Admin' : 'Standard User'}
                           </span>
                         </div>
+                        {u.isCoAdmin && (
+                          <div className="mt-2 text-[10px] text-slate-500 font-bold">
+                            Scope: {coAdminScopes.filter((s) => s.user_id === u.id).map((s) => s.country).join(', ') || 'No countries'}
+                          </div>
+                        )}
                       </td>
                       <td className="px-10 py-8 text-right">
-                        <div className="flex justify-end gap-3">
+                        <div className="flex justify-end gap-3 items-center">
                           <button
                             onClick={() => handleToggleAdmin(u)}
                             className={`p-2 rounded-xl transition-all ${u.isAdmin ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white'}`}
@@ -523,6 +711,33 @@ const AdminDashboard: React.FC = () => {
                           >
                             <Lock size={18} />
                           </button>
+                          {user.role === 'master_admin' && !u.isAdmin && (
+                            <>
+                              <input
+                                value={coAdminCountryInput[u.id] || ''}
+                                onChange={(e) => setCoAdminCountryInput((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                                placeholder="India, Japan"
+                                className="px-3 py-2 text-xs rounded-xl border border-slate-200 min-w-[170px]"
+                              />
+                              {u.isCoAdmin ? (
+                                <button
+                                  onClick={() => handleRevokeCoAdmin(u)}
+                                  className="p-2 rounded-xl transition-all bg-amber-50 text-amber-700 hover:bg-amber-600 hover:text-white"
+                                  title="Revoke Co-Admin"
+                                >
+                                  <XCircle size={18} />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleAssignCoAdmin(u)}
+                                  className="p-2 rounded-xl transition-all bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white"
+                                  title="Assign Co-Admin"
+                                >
+                                  <ShieldCheck size={18} />
+                                </button>
+                              )}
+                            </>
+                          )}
                           <button
                             disabled={u.id === user.id}
                             onClick={() => handleDeleteUser(u.id)}
