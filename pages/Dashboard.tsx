@@ -76,18 +76,16 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [techs, needs, usrs, orgs, requests] = await Promise.all([
+        const [techs, needs, usrs, orgs] = await Promise.all([
           apiService.getTechnologies(),
           apiService.getTechNeeds(),
           apiService.getPublicUsers(),
-          apiService.getStakeholders(),
-          apiService.getMyRoleRequests()
+          apiService.getStakeholders()
         ]);
         setAllTechnologies(techs);
         setAllNeeds(needs || []);
         setAllUsers(usrs);
         setAllStakeholders(orgs);
-        setMyRoleRequests(requests || []);
 
         const savedUser = localStorage.getItem('apctt_user_account');
         if (savedUser) {
@@ -99,6 +97,17 @@ const Dashboard: React.FC = () => {
         if (user?.stakeholder_id) {
           const found = orgs.find(s => s.stakeholder_id === user.stakeholder_id);
           if (found) setOrgData(found);
+        }
+
+        if (!user?.isAdmin && !user?.isMasterAdmin) {
+          try {
+            const requests = await apiService.getMyRoleRequests();
+            setMyRoleRequests(requests || []);
+          } catch {
+            setMyRoleRequests([]);
+          }
+        } else {
+          setMyRoleRequests([]);
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -179,14 +188,19 @@ const Dashboard: React.FC = () => {
         .split(',')
         .map((c) => c.trim())
         .filter((c) => c.length > 0);
+      if (requestedRole === 'co_admin' && countries.length === 0) {
+        alert('Please enter at least one country for a co-admin request.');
+        setRequestingRole(false);
+        return;
+      }
       await apiService.createRoleRequest(requestedRole, countries);
       const requests = await apiService.getMyRoleRequests();
       setMyRoleRequests(requests || []);
       setRequestCountries('');
       alert('Role request submitted. Master admin review is required.');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to request role:', error);
-      alert('Failed to submit role request.');
+      alert(error?.message || 'Failed to submit role request.');
     } finally {
       setRequestingRole(false);
     }
@@ -355,6 +369,14 @@ const Dashboard: React.FC = () => {
               {myRoleRequests.length === 0 && <div className="text-sm text-slate-500">No role requests yet.</div>}
             </div>
           </div>
+        </div>
+      )}
+
+      {(currentUser.isAdmin || currentUser.isMasterAdmin) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-8">
+          <p className="text-sm font-semibold text-amber-800">
+            Governance role requests are disabled for admin and master admin accounts.
+          </p>
         </div>
       )}
 

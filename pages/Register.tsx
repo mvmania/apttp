@@ -27,6 +27,7 @@ const Register: React.FC = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState('');
+  const [orgErrors, setOrgErrors] = useState<{ orgName?: string; orgCategory?: string; orgWebsite?: string }>({});
   const turnstileSiteKey = getTurnstileSiteKey();
 
   const [formData, setFormData] = useState({
@@ -47,6 +48,37 @@ const Register: React.FC = () => {
   }, [config.stakeholderCategories]);
 
   const handleNext = () => {
+    if (step === 2) {
+      const nextErrors: { orgName?: string; orgCategory?: string; orgWebsite?: string } = {};
+      const orgName = formData.orgName.trim();
+      const orgCategory = formData.orgCategory.trim();
+      const orgWebsite = formData.orgWebsite.trim();
+
+      if (!orgName) {
+        nextErrors.orgName = 'Organization name is required.';
+      }
+      if (!orgCategory) {
+        nextErrors.orgCategory = 'Entity category is required.';
+      }
+      if (!orgWebsite) {
+        nextErrors.orgWebsite = 'Official website is required.';
+      } else {
+        try {
+          const parsed = new URL(orgWebsite);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            nextErrors.orgWebsite = 'Official website must start with http:// or https://';
+          }
+        } catch {
+          nextErrors.orgWebsite = 'Please enter a valid website URL.';
+        }
+      }
+
+      setOrgErrors(nextErrors);
+      if (Object.keys(nextErrors).length > 0) {
+        return;
+      }
+    }
+
     if (step === 1 && formData.scenario === UserScenario.INDIVIDUAL) {
       setStep(3); // Skip org info for individuals
     } else {
@@ -67,13 +99,19 @@ const Register: React.FC = () => {
     setLoading(true);
 
     try {
-      if (turnstileSiteKey && !captchaToken) {
-        alert('Please complete the CAPTCHA challenge.');
+      if (!turnstileSiteKey) {
+        alert('Registration is currently unavailable: CAPTCHA site key is not configured.');
         setLoading(false);
         return;
       }
 
-      await apiService.registerUser(formData, captchaToken || undefined);
+      if (!captchaToken) {
+        alert('Please complete the CAPTCHA challenge before submitting.');
+        setLoading(false);
+        return;
+      }
+
+      await apiService.registerUser(formData, captchaToken);
       setLoading(false);
       alert('Registration successful. Please verify your email, then sign in.');
       navigate('/login');
@@ -163,45 +201,64 @@ const Register: React.FC = () => {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Organization Name</label>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      Organization Name <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         required
                         type="text"
                         placeholder="e.g., Innovation Lab Corp"
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        className={`w-full pl-12 pr-4 py-3 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${orgErrors.orgName ? 'border-red-400' : 'border-slate-200'}`}
                         value={formData.orgName}
-                        onChange={e => setFormData({ ...formData, orgName: e.target.value })}
+                        onChange={e => {
+                          setFormData({ ...formData, orgName: e.target.value });
+                          if (orgErrors.orgName) setOrgErrors(prev => ({ ...prev, orgName: undefined }));
+                        }}
                       />
                     </div>
+                    {orgErrors.orgName && <p className="text-xs text-red-600 font-semibold">{orgErrors.orgName}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Entity Category</label>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      Entity Category <span className="text-red-500">*</span>
+                    </label>
                     <select
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-slate-700"
+                      className={`w-full px-4 py-3 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-slate-700 ${orgErrors.orgCategory ? 'border-red-400' : 'border-slate-200'}`}
                       value={formData.orgCategory}
-                      onChange={e => setFormData({ ...formData, orgCategory: e.target.value })}
+                      onChange={e => {
+                        setFormData({ ...formData, orgCategory: e.target.value });
+                        if (orgErrors.orgCategory) setOrgErrors(prev => ({ ...prev, orgCategory: undefined }));
+                      }}
                     >
                       {config.stakeholderCategories.map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
+                    {orgErrors.orgCategory && <p className="text-xs text-red-600 font-semibold">{orgErrors.orgCategory}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Official Website</label>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      Official Website <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
+                        required
                         type="url"
                         placeholder="https://organization.com"
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        className={`w-full pl-12 pr-4 py-3 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${orgErrors.orgWebsite ? 'border-red-400' : 'border-slate-200'}`}
                         value={formData.orgWebsite}
-                        onChange={e => setFormData({ ...formData, orgWebsite: e.target.value })}
+                        onChange={e => {
+                          setFormData({ ...formData, orgWebsite: e.target.value });
+                          if (orgErrors.orgWebsite) setOrgErrors(prev => ({ ...prev, orgWebsite: undefined }));
+                        }}
                       />
                     </div>
+                    {orgErrors.orgWebsite && <p className="text-xs text-red-600 font-semibold">{orgErrors.orgWebsite}</p>}
                   </div>
                 </div>
               </div>
@@ -288,19 +345,23 @@ const Register: React.FC = () => {
                 </button>
               ) : (
                 <div className="flex-grow">
-                  {turnstileSiteKey && (
-                    <div className="mb-4">
+                  <div className="mb-4">
+                    {turnstileSiteKey ? (
                       <TurnstileWidget
                         siteKey={turnstileSiteKey}
                         action="register"
                         onTokenChange={setCaptchaToken}
                       />
-                    </div>
-                  )}
+                    ) : (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 font-medium">
+                        CAPTCHA setup is missing. Contact admin and set <code>VITE_TURNSTILE_SITE_KEY</code>.
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center transition-all shadow-xl shadow-blue-100 disabled:bg-blue-300"
+                    disabled={loading || !turnstileSiteKey || !captchaToken}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center transition-all shadow-xl shadow-blue-100 disabled:bg-blue-300 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />

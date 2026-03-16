@@ -15,13 +15,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserAccount | null>(null);
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem('apctt_user_account');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
-
   const toUserAccount = (u: any): UserAccount => {
     const role = (u.role as 'user' | 'co_admin' | 'admin' | 'master_admin' | undefined) || (u.is_admin ? 'admin' : 'user');
     const isAdmin = role === 'admin' || role === 'master_admin' || Boolean(u.isAdmin ?? u.is_admin);
@@ -43,6 +36,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       country: u.country ?? null
     };
   };
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('apctt_user_account');
+    if (!savedUser) return;
+    try {
+      const parsed = JSON.parse(savedUser);
+      setUser(toUserAccount(parsed));
+    } catch {
+      localStorage.removeItem('apctt_user_account');
+    }
+  }, []);
 
   const login = async (email: string, password: string, captchaToken?: string) => {
     try {

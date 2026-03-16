@@ -118,8 +118,8 @@ export const apiService = {
         return response.json();
     },
 
-    async registerUser(userData: any, turnstileToken?: string) {
-        const payload = turnstileToken ? { ...userData, turnstileToken } : userData;
+    async registerUser(userData: any, turnstileToken: string) {
+        const payload = { ...userData, turnstileToken };
         const response = await fetch(`${API_URL}/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

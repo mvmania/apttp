@@ -57,6 +57,7 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editingStakeholder, setEditingStakeholder] = useState<Stakeholder | null>(null);
   const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
+  const isMasterAdminUser = Boolean(user?.role === 'master_admin' || user?.isMasterAdmin);
 
   // Security check & Data fetch
   useEffect(() => {
@@ -78,7 +79,7 @@ const AdminDashboard: React.FC = () => {
         setUsers(u);
         setContentList(c);
 
-        if (user?.role === 'master_admin') {
+        if (isMasterAdminUser) {
           const [scopes, requests] = await Promise.all([
             apiService.getCoAdminScopes(),
             apiService.getPendingRoleRequests()
@@ -96,7 +97,7 @@ const AdminDashboard: React.FC = () => {
       }
     };
     fetchData();
-  }, [user, navigate]);
+  }, [user, navigate, isMasterAdminUser]);
 
   if (!user || !user.isAdmin) return null;
   if (loading) return (
@@ -593,7 +594,7 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {user.role === 'master_admin' && (
+            {isMasterAdminUser && (
               <div className="px-10 py-8 border-b border-slate-100 space-y-6 bg-slate-50/40">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-widest text-slate-500 mb-3">Pending Role Requests</h3>
@@ -711,7 +712,7 @@ const AdminDashboard: React.FC = () => {
                           >
                             <Lock size={18} />
                           </button>
-                          {user.role === 'master_admin' && !u.isAdmin && (
+                          {isMasterAdminUser && !u.isAdmin && (
                             <>
                               <input
                                 value={coAdminCountryInput[u.id] || ''}

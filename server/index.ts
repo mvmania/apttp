@@ -104,10 +104,7 @@ const hashToken = (token: string): string => {
 };
 
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
-const turnstileEnabled = (process.env.TURNSTILE_ENABLED || "false").toLowerCase() === "true";
-const turnstileBypassInDev =
-    process.env.NODE_ENV === "development" &&
-    (process.env.TURNSTILE_ENFORCE_IN_DEV || "false").toLowerCase() !== "true";
+const turnstileEnabled = (process.env.TURNSTILE_ENABLED || "true").toLowerCase() === "true";
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY || "";
 
 interface TurnstileVerificationResult {
@@ -152,10 +149,6 @@ const verifyTurnstileToken = async (token: string, remoteIp?: string): Promise<T
 
 const requireTurnstile = (expectedAction?: string) => {
     return async (req: Request, res: Response, next: NextFunction) => {
-        if (turnstileBypassInDev) {
-            return next();
-        }
-
         if (!turnstileEnabled) {
             return next();
         }
@@ -591,6 +584,29 @@ app.post("/api/logout", async (req: Request, res: Response) => {
 
 app.post('/api/register', registerLimiter, requireTurnstile("register"), async (req: Request, res: Response) => {
     const { name, email, password, scenario, orgName, orgCategory, orgWebsite, country } = req.body;
+    const scenarioValue = String(scenario || "").trim();
+    const isIndividualScenario = scenarioValue === "Individual Participant";
+    const normalizedOrgName = String(orgName || "").trim();
+    const normalizedOrgCategory = String(orgCategory || "").trim();
+    const normalizedOrgWebsite = String(orgWebsite || "").trim();
+
+    if (!isIndividualScenario) {
+        if (!normalizedOrgName || !normalizedOrgCategory || !normalizedOrgWebsite) {
+            return res.status(400).json({
+                error: "Organization name, entity category, and official website are required for organization-based registrations."
+            });
+        }
+
+        try {
+            const parsedWebsite = new URL(normalizedOrgWebsite);
+            if (parsedWebsite.protocol !== "http:" && parsedWebsite.protocol !== "https:") {
+                return res.status(400).json({ error: "Official website must start with http:// or https://" });
+            }
+        } catch {
+            return res.status(400).json({ error: "Official website must be a valid URL." });
+        }
+    }
+
     if (!isStrongPassword(password)) {
     return res.status(400).json({
         error: "Password must be minimum 8 characters and include uppercase, lowercase, number and special character."
@@ -609,14 +625,14 @@ app.post('/api/register', registerLimiter, requireTurnstile("register"), async (
         }
 
         let stakeholder_id = '';
-        if ((scenario === 'Organization Representative' || scenario === 'Official Representative') && orgName) {
+        if (!isIndividualScenario) {
             stakeholder_id = `s${Date.now()}`;
             await client.query(`
                 INSERT INTO stakeholders (
                     stakeholder_id, name, category, website, description, is_verified, roles, approval_status
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             `, [
-                stakeholder_id, orgName, orgCategory, orgWebsite,
+                stakeholder_id, normalizedOrgName, normalizedOrgCategory, normalizedOrgWebsite,
                 `Registered via platform by ${name}`, false, JSON.stringify(['Provider']), 'pending'
             ]);
         }

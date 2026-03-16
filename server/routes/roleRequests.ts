@@ -37,16 +37,27 @@ roleRequestsRouter.post(
       return res.status(400).json({ error: "requestedRole must be co_admin or admin" });
     }
 
-    if (isMasterAdmin(req.user.role)) {
-      return res.status(400).json({ error: "Master admin does not need role requests" });
-    }
-
     const countries = normalizeCountries(req.body?.countries);
     if (requestedRole === "co_admin" && countries.length === 0) {
       return res.status(400).json({ error: "At least one country is required for co-admin requests" });
     }
 
     try {
+      const roleResult = await query(
+        `SELECT role
+         FROM users
+         WHERE id = $1
+         LIMIT 1`,
+        [req.user.id]
+      );
+      const currentRole = String(roleResult.rows[0]?.role || req.user.role || "");
+      if (isMasterAdmin(currentRole)) {
+        return res.status(400).json({ error: "Master admin does not need role requests" });
+      }
+      if (currentRole === "admin") {
+        return res.status(400).json({ error: "Admin users cannot request role upgrades" });
+      }
+
       const duplicate = await query(
         `SELECT id
          FROM role_upgrade_requests
@@ -85,6 +96,18 @@ roleRequestsRouter.get(
     }
 
     try {
+      const roleResult = await query(
+        `SELECT role
+         FROM users
+         WHERE id = $1
+         LIMIT 1`,
+        [req.user.id]
+      );
+      const currentRole = String(roleResult.rows[0]?.role || req.user.role || "");
+      if (isMasterAdmin(currentRole)) {
+        return res.status(400).json({ error: "Master admin does not use role requests" });
+      }
+
       const result = await query(
         `SELECT id, requested_role, requested_countries, status, note, requested_at, reviewed_at
          FROM role_upgrade_requests

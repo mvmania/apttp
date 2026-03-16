@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Globe, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Globe, Lock, Mail, ArrowRight, ChevronRight, ShieldCheck, Building2 } from 'lucide-react';
 import { getTurnstileSiteKey } from '../services/turnstileService';
 import TurnstileWidget from '../components/TurnstileWidget';
 
@@ -12,6 +12,11 @@ const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const turnstileSiteKey = getTurnstileSiteKey();
+  const demoScenarios = [
+    { label: 'Platform Admin', subtitle: 'APCTT Internal Staff', icon: ShieldCheck, email: 'admin@apctt.org' },
+    { label: 'Official Representative', subtitle: 'GreenFuture Tech CEO', icon: ShieldCheck, email: 'rep@greenfuture.org' },
+    { label: 'Organization Member', subtitle: 'Internal Staff Access', icon: Building2, email: 'member@greenfuture.org' }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +90,31 @@ const Login: React.FC = () => {
           >
             Sign In <ArrowRight className="ml-2 w-4 h-4" />
           </button>
+
+          <div className="pt-6 border-t border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-4">
+              Select Demo Scenario
+            </p>
+            <div className="space-y-2.5">
+              {demoScenarios.map((scenario) => (
+                <button
+                  key={scenario.label}
+                  type="button"
+                  onClick={() => setEmail(scenario.email)}
+                  className="w-full border border-slate-200 hover:border-blue-300 rounded-xl px-3 py-2.5 flex items-center justify-between transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <scenario.icon className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{scenario.label}</p>
+                      <p className="text-[10px] text-slate-500 font-medium">{scenario.subtitle}</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                </button>
+              ))}
+            </div>
+          </div>
         </form>
 
         <div className="p-6 bg-slate-50 text-center border-t border-slate-100">
