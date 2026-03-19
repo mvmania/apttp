@@ -16,9 +16,13 @@ import { securityConfig } from "./config/security.js";
 import { authenticateToken } from "./middleware/authMiddleware.js";
 import { requireAdmin, requireVerifiedUser } from "./middleware/roleMiddleware.js";
 import {
+    consumeOtpCode,
     buildEmailVerificationUrl,
     createEmailVerificationToken,
+    createOtpCode,
     emailVerificationRouter,
+    PASSWORD_RESET_TTL_MINUTES,
+    sendOneTimeCodeEmail,
     sendVerificationEmail,
     verifyEmailProviderConnection
 } from "./routes/emailVerification.js";
@@ -55,6 +59,8 @@ const authLimiterBase = {
 const loginLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.loginMax });
 const registerLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.registerMax });
 const refreshLimiter = rateLimit({ ...authLimiterBase, max: securityConfig.rateLimit.refreshMax });
+const forgotPasswordLimiter = rateLimit({ ...authLimiterBase, max: 5 });
+const resetPasswordLimiter = rateLimit({ ...authLimiterBase, max: 10 });
 
 app.use("/api", globalLimiter);
 app.use(emailVerificationRouter);
@@ -478,6 +484,176 @@ app.post("/api/login", loginLimiter, requireTurnstile("login"), async (req: Requ
   }
 });
 
+app.post("/api/auth/forgot-password", forgotPasswordLimiter, async (req: Request, res: Response) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+    }
+
+    const client = await getClient();
+    try {
+        const result = await client.query(
+            `SELECT id, email, name
+             FROM users
+             WHERE LOWER(email) = $1
+             LIMIT 1`,
+            [email]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ success: true, message: "If the account exists, a password reset OTP has been sent." });
+        }
+
+        const user = result.rows[0];
+        await client.query("BEGIN");
+        const code = await createOtpCode(client, user.email, "password_reset", {
+            userId: user.id,
+            invalidateExisting: true,
+            ttlMinutes: PASSWORD_RESET_TTL_MINUTES
+        });
+        await client.query("COMMIT");
+
+        await sendOneTimeCodeEmail(
+            user.email,
+            user.name || "User",
+            "Your password reset OTP",
+            "Use this OTP to reset your APCTT account password.",
+            code,
+            PASSWORD_RESET_TTL_MINUTES
+        );
+
+        return res.json({
+            success: true,
+            message: "If the account exists, a password reset OTP has been sent.",
+            ...(process.env.NODE_ENV === "development" ? { password_reset_debug_otp: code } : {})
+        });
+    } catch (err) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // Ignore rollback errors.
+        }
+        console.error("Forgot password failed:", err);
+        return res.status(500).json({ error: "Failed to start password reset" });
+    } finally {
+        client.release();
+    }
+});
+
+app.post("/api/auth/reset-password", resetPasswordLimiter, async (req: Request, res: Response) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const code = String(req.body?.code || "").trim();
+    const newPassword = String(req.body?.newPassword || "");
+
+    if (!email || !/^\d{6}$/.test(code) || !newPassword) {
+        return res.status(400).json({ error: "Email, valid OTP, and new password are required" });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+        return res.status(400).json({
+            error: "Password must be minimum 8 characters and include uppercase, lowercase, number and special character."
+        });
+    }
+
+    const client = await getClient();
+    try {
+        await client.query("BEGIN");
+
+        const userResult = await client.query(
+            `SELECT id, email
+             FROM users
+             WHERE LOWER(email) = $1
+             LIMIT 1
+             FOR UPDATE`,
+            [email]
+        );
+
+        if (userResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Invalid email or OTP" });
+        }
+
+        const user = userResult.rows[0];
+        await consumeOtpCode(client, user.email, "password_reset", code);
+
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        await client.query(
+            `UPDATE users
+             SET password = $2
+             WHERE id = $1`,
+            [user.id, hashedPassword]
+        );
+        await client.query(`DELETE FROM user_sessions WHERE user_id = $1`, [user.id]);
+
+        await client.query("COMMIT");
+        return res.json({ success: true, message: "Password reset successful. Please sign in with your new password." });
+    } catch (err) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // Ignore rollback errors.
+        }
+        if (err instanceof Error && err.message === "Invalid or expired OTP") {
+            return res.status(400).json({ error: err.message });
+        }
+        console.error("Reset password failed:", err);
+        return res.status(500).json({ error: "Failed to reset password" });
+    } finally {
+        client.release();
+    }
+});
+
+app.post("/api/auth/change-password", authenticateToken, async (req: Request, res: Response) => {
+    if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const currentPassword = String(req.body?.currentPassword || "");
+    const newPassword = String(req.body?.newPassword || "");
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current password and new password are required" });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+        return res.status(400).json({
+            error: "Password must be minimum 8 characters and include uppercase, lowercase, number and special character."
+        });
+    }
+
+    const client = await getClient();
+    try {
+        const result = await client.query(
+            `SELECT id, password
+             FROM users
+             WHERE id = $1
+             LIMIT 1`,
+            [req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const user = result.rows[0];
+        const isValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isValid) {
+            return res.status(400).json({ error: "Current password is incorrect" });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        await client.query(`UPDATE users SET password = $2 WHERE id = $1`, [req.user.id, hashedPassword]);
+        await client.query(`DELETE FROM user_sessions WHERE user_id = $1`, [req.user.id]);
+        clearRefreshCookie(res);
+
+        return res.json({ success: true, message: "Password changed successfully. Sign in again on other devices if needed." });
+    } catch (err) {
+        console.error("Change password failed:", err);
+        return res.status(500).json({ error: "Failed to change password" });
+    } finally {
+        client.release();
+    }
+});
+
 
 // POST refresh token
 app.post("/api/refresh-token", refreshLimiter, async (req: Request, res: Response) => {
@@ -687,6 +863,79 @@ app.post('/api/register', registerLimiter, requireTurnstile("register"), async (
         });
     } finally {
         client.release();
+    }
+});
+
+app.post('/api/users/:id/id-document', authenticateToken, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { fileName, contentType, dataBase64 } = req.body || {};
+
+    try {
+        if (!req.user) {
+            return res.status(401).json({ error: "Authentication required" });
+        }
+
+        const isAdmin = req.user.role === "admin" || req.user.role === "master_admin";
+        const isSelf = req.user.id === id;
+        if (!isAdmin && !isSelf) {
+            return res.status(403).json({ error: "Insufficient permissions" });
+        }
+
+        const normalizedFileName = String(fileName || "").trim();
+        const normalizedContentType = String(contentType || "application/octet-stream").trim();
+        const normalizedBase64 = String(dataBase64 || "").trim();
+
+        if (!normalizedFileName || !normalizedBase64) {
+            return res.status(400).json({ error: "Document file is required" });
+        }
+
+        const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
+        if (!allowedTypes.has(normalizedContentType)) {
+            return res.status(400).json({ error: "Only PDF, JPG, and PNG files are allowed" });
+        }
+
+        const fileBuffer = Buffer.from(normalizedBase64, "base64");
+        if (!fileBuffer.length) {
+            return res.status(400).json({ error: "Uploaded file is empty" });
+        }
+
+        const uploadsDir = path.join(__dirname, "../public/uploads/verifications");
+        await fs.promises.mkdir(uploadsDir, { recursive: true });
+
+        const sanitizedFileName = normalizedFileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storedFileName = `${id}_${Date.now()}_${sanitizedFileName}`;
+        await fs.promises.writeFile(path.join(uploadsDir, storedFileName), fileBuffer);
+
+        const currentUserResult = await query(
+            `SELECT verification_status
+             FROM users
+             WHERE id = $1
+             LIMIT 1`,
+            [id]
+        );
+
+        if (currentUserResult.rows.length === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const currentStatus = currentUserResult.rows[0].verification_status || "None";
+        const nextStatus = currentStatus === "Approved" || currentStatus === "Update Pending Review"
+            ? "Update Pending Review"
+            : "Pending Review";
+
+        const result = await query(
+            `UPDATE users
+             SET id_document_name = $2,
+                 verification_status = $3
+             WHERE id = $1
+             RETURNING *`,
+            [id, storedFileName, nextStatus]
+        );
+
+        return res.json(mapUser(result.rows[0]));
+    } catch (err) {
+        console.error("ID document upload failed:", err);
+        return res.status(500).json({ error: "Failed to upload verification document" });
     }
 });
 
@@ -1195,6 +1444,21 @@ const initAuthSchema = async () => {
         await query(`CREATE INDEX IF NOT EXISTS idx_email_verification_token_hash ON email_verification_tokens(token_hash);`);
         await query(`CREATE INDEX IF NOT EXISTS idx_email_verification_user_id ON email_verification_tokens(user_id);`);
         await query(`CREATE INDEX IF NOT EXISTS idx_email_verification_expires_at ON email_verification_tokens(expires_at);`);
+
+        await query(`
+            CREATE TABLE IF NOT EXISTS auth_otp_codes (
+                id UUID PRIMARY KEY,
+                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+                email TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                code_hash VARCHAR(64) NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                used_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        await query(`CREATE INDEX IF NOT EXISTS idx_auth_otp_email_purpose ON auth_otp_codes(email, purpose);`);
+        await query(`CREATE INDEX IF NOT EXISTS idx_auth_otp_expires_at ON auth_otp_codes(expires_at);`);
     } catch (err) {
         console.error("Failed to initialize auth schema:", err);
     }

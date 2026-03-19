@@ -21,6 +21,7 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import Matchmaker from './pages/Matchmaker';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import RegisterTechnology from './pages/RegisterTechnology';
 import RegisterNeed from './pages/RegisterNeed';
@@ -57,6 +58,7 @@ const App: React.FC = () => {
                       <Route path="/knowledge" element={<KnowledgeBase />} />
                       <Route path="/matchmaker" element={<Matchmaker />} />
                       <Route path="/login" element={<Login />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
                       <Route path="/register" element={<Register />} />
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/admin" element={<AdminDashboard />} />

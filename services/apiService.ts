@@ -16,6 +16,18 @@ const readErrorMessage = async (response: Response, fallback: string): Promise<s
     }
 };
 
+const fileToBase64 = async (file: File): Promise<string> => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+    });
+
+    const [, base64 = ""] = dataUrl.split(",");
+    return base64;
+};
+
 export const apiService = {
     async loginUser(email: string, password: string, captchaToken?: string) {
         const payload: Record<string, string> = { email, password };
@@ -29,6 +41,65 @@ export const apiService = {
         });
         if (!response.ok) {
             throw new Error(await readErrorMessage(response, 'Login failed'));
+        }
+        return response.json();
+    },
+
+    async sendEmailVerificationOtp() {
+        const response = await fetch(`${API_URL}/auth/send-email-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+        });
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Failed to send verification OTP'));
+        }
+        return response.json();
+    },
+
+    async verifyEmailOtp(code: string) {
+        const response = await fetch(`${API_URL}/auth/verify-email-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ code })
+        });
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Failed to verify email OTP'));
+        }
+        return response.json();
+    },
+
+    async forgotPassword(email: string) {
+        const response = await fetch(`${API_URL}/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Failed to start password reset'));
+        }
+        return response.json();
+    },
+
+    async resetPassword(email: string, code: string, newPassword: string) {
+        const response = await fetch(`${API_URL}/auth/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code, newPassword })
+        });
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Failed to reset password'));
+        }
+        return response.json();
+    },
+
+    async changePassword(currentPassword: string, newPassword: string) {
+        const response = await fetch(`${API_URL}/auth/change-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Failed to change password'));
         }
         return response.json();
     },
@@ -149,6 +220,23 @@ export const apiService = {
             body: JSON.stringify(userData)
         });
         if (!response.ok) throw new Error(await readErrorMessage(response, 'Failed to update user'));
+        return response.json();
+    },
+
+    async uploadUserVerificationDocument(id: string, file: File) {
+        const dataBase64 = await fileToBase64(file);
+        const response = await fetch(`${API_URL}/users/${id}/id-document`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({
+                fileName: file.name,
+                contentType: file.type || 'application/octet-stream',
+                dataBase64
+            })
+        });
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Failed to upload verification document'));
+        }
         return response.json();
     },
 

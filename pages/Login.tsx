@@ -4,11 +4,21 @@ import { useAuth } from '../context/AuthContext';
 import { Globe, Lock, Mail, ArrowRight, ChevronRight, ShieldCheck, Building2 } from 'lucide-react';
 import { getTurnstileSiteKey } from '../services/turnstileService';
 import TurnstileWidget from '../components/TurnstileWidget';
+import { apiService } from '../services/apiService';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [captchaToken, setCaptchaToken] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [recoveryMessage, setRecoveryMessage] = useState('');
+  const [recoveryError, setRecoveryError] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const turnstileSiteKey = getTurnstileSiteKey();
@@ -20,16 +30,65 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError('');
     if (turnstileSiteKey && !captchaToken) {
-      alert('Please complete the CAPTCHA challenge.');
+      setLoginError('Please complete the CAPTCHA challenge.');
       return;
     }
 
-    const success = await login(email, password, captchaToken || undefined);
-    if (success) {
+    const result = await login(email, password, captchaToken || undefined);
+    if (result.success) {
       navigate('/dashboard');
     } else {
-      alert('Invalid credentials or captcha verification failed.');
+      setLoginError(result.error || 'Invalid credentials or captcha verification failed.');
+    }
+  };
+
+  const handleSendResetCode = async () => {
+    setRecoveryMessage('');
+    setRecoveryError('');
+    if (!email.trim()) {
+      setRecoveryError('Enter your email address first.');
+      return;
+    }
+
+    setIsSendingReset(true);
+    try {
+      const response = await apiService.forgotPassword(email.trim());
+      setRecoveryMessage(response.message || 'If the email exists, a reset OTP has been sent.');
+    } catch (error: any) {
+      setRecoveryError(error?.message || 'Failed to send reset OTP.');
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    setRecoveryMessage('');
+    setRecoveryError('');
+
+    if (!email.trim() || !resetCode.trim() || !newPassword || !confirmPassword) {
+      setRecoveryError('Complete email, OTP, and both password fields.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setRecoveryError('New password and confirm password do not match.');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      const response = await apiService.resetPassword(email.trim(), resetCode.trim(), newPassword);
+      setRecoveryMessage(response.message || 'Password reset successful. You can sign in now.');
+      setPassword('');
+      setResetCode('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setIsRecoveryMode(false);
+    } catch (error: any) {
+      setRecoveryError(error?.message || 'Failed to reset password.');
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -84,12 +143,74 @@ const Login: React.FC = () => {
             />
           )}
 
+          {loginError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {loginError}
+            </div>
+          )}
+
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center transition-all shadow-xl shadow-blue-100"
           >
             Sign In <ArrowRight className="ml-2 w-4 h-4" />
           </button>
+
+          <Link to="/forgot-password" className="block w-full text-center text-sm font-semibold text-blue-600 hover:text-blue-700">
+            Forgot password? Reset with OTP
+          </Link>
+
+          {isRecoveryMode && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <p className="text-xs font-semibold text-slate-600">
+                Enter your email, request the OTP, then set a new password.
+              </p>
+              <button
+                type="button"
+                onClick={handleSendResetCode}
+                disabled={isSendingReset}
+                className="w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {isSendingReset ? 'Sending OTP...' : 'Send Reset OTP'}
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="6-digit OTP"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value)}
+              />
+              <input
+                type="password"
+                placeholder="New password"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <input
+                type="password"
+                placeholder="Confirm new password"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={isResettingPassword}
+                className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {isResettingPassword ? 'Resetting Password...' : 'Reset Password'}
+              </button>
+              {recoveryMessage && (
+                <p className="text-xs font-semibold text-emerald-700">{recoveryMessage}</p>
+              )}
+              {recoveryError && (
+                <p className="text-xs font-semibold text-red-700">{recoveryError}</p>
+              )}
+            </div>
+          )}
 
           <div className="pt-6 border-t border-slate-100">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-4">

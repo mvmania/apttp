@@ -51,11 +51,11 @@ type RoleRequestItem = {
 };
 
 const Dashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser: updateAuthUser } = useAuth();
   const { chatRooms } = useChat();
   const config = useConfig();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'tech' | 'needs' | 'team' | 'chats' | 'org-profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'tech' | 'needs' | 'team' | 'chats' | 'org-profile' | 'settings'>('overview');
 
   const [orgData, setOrgData] = useState<Stakeholder | null>(null);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
@@ -66,8 +66,17 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
-  const [verificationSent, setVerificationSent] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailVerificationMessage, setEmailVerificationMessage] = useState('');
+  const [emailVerificationError, setEmailVerificationError] = useState('');
+  const [isConfirmingEmailOtp, setIsConfirmingEmailOtp] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changePasswordMessage, setChangePasswordMessage] = useState('');
+  const [changePasswordError, setChangePasswordError] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [requestedRole, setRequestedRole] = useState<'co_admin' | 'admin'>('co_admin');
   const [requestCountries, setRequestCountries] = useState('');
   const [requestingRole, setRequestingRole] = useState(false);
@@ -135,19 +144,43 @@ const Dashboard: React.FC = () => {
     const newUser = { ...currentUser, ...updated };
     setCurrentUser(newUser);
     localStorage.setItem('apctt_user_account', JSON.stringify(newUser));
+    updateAuthUser(updated);
   };
 
   const handleVerifyEmail = async () => {
     setIsVerifyingEmail(true);
+    setEmailVerificationError('');
+    setEmailVerificationMessage('');
     try {
-      await apiService.resendVerificationEmail();
-      setVerificationSent(true);
-      setTimeout(() => setVerificationSent(false), 5000);
+      const response = await apiService.sendEmailVerificationOtp();
+      setEmailVerificationMessage(response.message || 'Verification OTP sent to your inbox.');
     } catch (error) {
       console.error('Error sending verification email:', error);
-      alert('Failed to send verification email. Please try again.');
+      setEmailVerificationError('Failed to send verification OTP. Please try again.');
     } finally {
       setIsVerifyingEmail(false);
+    }
+  };
+
+  const handleConfirmEmailOtp = async () => {
+    if (!emailOtpCode.trim()) {
+      setEmailVerificationError('Enter the OTP sent to your email.');
+      return;
+    }
+
+    setIsConfirmingEmailOtp(true);
+    setEmailVerificationError('');
+    setEmailVerificationMessage('');
+    try {
+      const response = await apiService.verifyEmailOtp(emailOtpCode.trim());
+      updateLocalUser({ is_email_verified: true });
+      setEmailOtpCode('');
+      setEmailVerificationMessage(response.message || 'Email verified successfully.');
+    } catch (error: any) {
+      console.error('Error verifying email OTP:', error);
+      setEmailVerificationError(error?.message || 'Failed to verify email OTP.');
+    } finally {
+      setIsConfirmingEmailOtp(false);
     }
   };
 
@@ -157,20 +190,9 @@ const Dashboard: React.FC = () => {
 
     setUploadingDoc(true);
     try {
-      // Logic for new status
-      let nextStatus = VerificationStatus.PENDING;
-      if (currentUser.verification_status === VerificationStatus.APPROVED ||
-        currentUser.verification_status === VerificationStatus.UPDATE_PENDING) {
-        nextStatus = VerificationStatus.UPDATE_PENDING;
-        // is_id_verified stays true if it was already true
-      }
-
-      const updated = await apiService.updateUser(currentUser.id, {
-        verification_status: nextStatus,
-        id_document_name: file.name
-      });
+      const updated = await apiService.uploadUserVerificationDocument(currentUser.id, file);
       updateLocalUser(updated);
-      alert(nextStatus === VerificationStatus.UPDATE_PENDING
+      alert(updated.verification_status === VerificationStatus.UPDATE_PENDING
         ? 'Updated document submitted. Your current verified status remains active while admin reviews the new file.'
         : 'Verification document submitted successfully. Platform admin will review it shortly.');
     } catch (error) {
@@ -203,6 +225,36 @@ const Dashboard: React.FC = () => {
       alert(error?.message || 'Failed to submit role request.');
     } finally {
       setRequestingRole(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordError('');
+    setChangePasswordMessage('');
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setChangePasswordError('Complete all password fields.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError('New password and confirm password do not match.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const response = await apiService.changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setChangePasswordMessage(response.message || 'Password updated successfully.');
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      setChangePasswordError(error?.message || 'Failed to change password.');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -408,7 +460,7 @@ const Dashboard: React.FC = () => {
               <MessageSquare className="w-5 h-5 mr-3" /> Discussions
             </button>
             <div className="h-px bg-slate-100 my-2 mx-4"></div>
-            <button className="flex items-center px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-all">
+            <button onClick={() => setActiveTab('settings')} className={`flex items-center px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'settings' ? 'bg-apctt-blue text-white shadow-lg shadow-apctt-light' : 'text-slate-600 hover:bg-slate-50'}`}>
               <Settings className="w-5 h-5 mr-3" /> Settings
             </button>
           </nav>
@@ -488,13 +540,35 @@ const Dashboard: React.FC = () => {
                           {isVerifyingEmail ? (
                             <div className="flex items-center gap-2">
                               <Loader2 className="animate-spin w-4 h-4" />
-                              <span>Sending Link...</span>
+                              <span>Sending OTP...</span>
                             </div>
-                          ) : 'Send Verification Link'}
+                          ) : 'Send Email OTP'}
                         </button>
-                        {verificationSent && (
-                          <p className="mt-3 text-[10px] font-bold text-apctt-blue animate-pulse text-center">
-                            Verification link sent to your inbox! (Simulated)
+                        <div className="mt-3 space-y-3">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Enter 6-digit OTP"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value={emailOtpCode}
+                            onChange={(e) => setEmailOtpCode(e.target.value)}
+                          />
+                          <button
+                            onClick={handleConfirmEmailOtp}
+                            disabled={isConfirmingEmailOtp}
+                            className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50"
+                          >
+                            {isConfirmingEmailOtp ? 'Verifying OTP...' : 'Verify OTP'}
+                          </button>
+                        </div>
+                        {emailVerificationMessage && (
+                          <p className="mt-3 text-[11px] font-bold text-emerald-700 text-center">
+                            {emailVerificationMessage}
+                          </p>
+                        )}
+                        {emailVerificationError && (
+                          <p className="mt-3 text-[11px] font-bold text-red-700 text-center">
+                            {emailVerificationError}
                           </p>
                         )}
                       </>
@@ -883,6 +957,73 @@ const Dashboard: React.FC = () => {
                   );
                 })}
                 {myChats.length === 0 && <p className="col-span-full text-center text-slate-400 py-10">No active discussions.</p>}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
+              <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Security Settings</h2>
+                <p className="text-sm text-slate-500 mb-6">
+                  Change your sign-in password and keep your account protected.
+                </p>
+
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Current Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="password"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">New Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="password"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">Confirm New Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="password"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {changePasswordMessage && (
+                    <p className="text-sm font-semibold text-emerald-700">{changePasswordMessage}</p>
+                  )}
+                  {changePasswordError && (
+                    <p className="text-sm font-semibold text-red-700">{changePasswordError}</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isChangingPassword}
+                    className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {isChangingPassword ? 'Updating Password...' : 'Change Password'}
+                  </button>
+                </form>
               </div>
             </div>
           )}

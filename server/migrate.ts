@@ -148,6 +148,19 @@ async function migrate() {
     `);
 
         await query(`
+      CREATE TABLE IF NOT EXISTS auth_otp_codes (
+        id UUID PRIMARY KEY,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        email TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        code_hash VARCHAR(64) NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+        await query(`
       CREATE TABLE IF NOT EXISTS co_admin_scopes (
         id UUID PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -208,6 +221,15 @@ async function migrate() {
       ON email_verification_tokens(expires_at);
     `);
         console.log('✅ Tables created successfully.');
+
+        await query(`
+      CREATE INDEX IF NOT EXISTS idx_auth_otp_email_purpose
+      ON auth_otp_codes(email, purpose);
+    `);
+        await query(`
+      CREATE INDEX IF NOT EXISTS idx_auth_otp_expires_at
+      ON auth_otp_codes(expires_at);
+    `);
 
         // 2. Load and Seed Data
         if (fs.existsSync(DATA_FILE)) {

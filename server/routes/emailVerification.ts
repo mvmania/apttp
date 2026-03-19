@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "crypto";
+import { createHash, randomBytes, randomInt, randomUUID } from "crypto";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import rateLimit from "express-rate-limit";
@@ -10,9 +10,12 @@ import { authenticateToken } from "../middleware/authMiddleware.js";
 const PORT = process.env.PORT || 10000;
 
 export const EMAIL_VERIFICATION_TTL_MINUTES = 15;
+export const OTP_TTL_MINUTES = 10;
+export const PASSWORD_RESET_TTL_MINUTES = 10;
 
 type EmailProvider = "resend" | "smtp";
 type DbClient = Awaited<ReturnType<typeof getClient>>;
+type OtpPurpose = "email_verification" | "password_reset";
 
 const parseEnvBoolean = (value: string | undefined, fallback: boolean): boolean => {
     if (value === undefined) return fallback;
@@ -27,9 +30,9 @@ const getEmailProvider = (): EmailProvider => {
     return process.env.RESEND_API_KEY ? "resend" : "smtp";
 };
 
-const hashToken = (token: string): string => {
-    return createHash("sha256").update(token).digest("hex");
-};
+const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
+
+const generateOtpCode = (): string => String(randomInt(0, 1_000_000)).padStart(6, "0");
 
 const getResendConfig = () => {
     const apiKey = process.env.RESEND_API_KEY;
@@ -69,7 +72,7 @@ export const buildEmailVerificationUrl = (token: string): string => {
     return `${normalizedBaseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
 };
 
-const sendViaSmtp = async (email: string, name: string, verificationUrl: string): Promise<void> => {
+const sendViaSmtp = async (email: string, subject: string, text: string, html: string): Promise<void> => {
     const smtp = getSmtpConfig();
     const transporter = nodemailer.createTransport({
         host: smtp.host,
@@ -84,18 +87,13 @@ const sendViaSmtp = async (email: string, name: string, verificationUrl: string)
     await transporter.sendMail({
         from: smtp.from,
         to: email,
-        subject: "Verify your email address",
-        text: `Hi ${name},\n\nPlease verify your email by clicking this link:\n${verificationUrl}\n\nThis link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.\n`,
-        html: `
-            <p>Hi ${name},</p>
-            <p>Please verify your email by clicking the link below:</p>
-            <p><a href="${verificationUrl}">${verificationUrl}</a></p>
-            <p>This link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.</p>
-        `
+        subject,
+        text,
+        html
     });
 };
 
-const sendViaResend = async (email: string, name: string, verificationUrl: string): Promise<void> => {
+const sendViaResend = async (email: string, subject: string, text: string, html: string): Promise<void> => {
     const resend = getResendConfig();
     const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -106,14 +104,9 @@ const sendViaResend = async (email: string, name: string, verificationUrl: strin
         body: JSON.stringify({
             from: resend.from,
             to: [email],
-            subject: "Verify your email address",
-            text: `Hi ${name},\n\nPlease verify your email by clicking this link:\n${verificationUrl}\n\nThis link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.\n`,
-            html: `
-                <p>Hi ${name},</p>
-                <p>Please verify your email by clicking the link below:</p>
-                <p><a href="${verificationUrl}">${verificationUrl}</a></p>
-                <p>This link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.</p>
-            `
+            subject,
+            text,
+            html
         })
     });
 
@@ -123,24 +116,59 @@ const sendViaResend = async (email: string, name: string, verificationUrl: strin
     }
 };
 
-export const sendVerificationEmail = async (email: string, name: string, verificationUrl: string): Promise<void> => {
+const sendEmail = async (email: string, subject: string, text: string, html: string): Promise<void> => {
     const provider = getEmailProvider();
     const allowSmtpFallback = parseEnvBoolean(process.env.EMAIL_PROVIDER_FALLBACK_TO_SMTP, true);
 
     if (provider === "smtp") {
-        await sendViaSmtp(email, name, verificationUrl);
+        await sendViaSmtp(email, subject, text, html);
         return;
     }
 
     try {
-        await sendViaResend(email, name, verificationUrl);
+        await sendViaResend(email, subject, text, html);
     } catch (resendErr) {
         if (!allowSmtpFallback) {
             throw resendErr;
         }
         console.warn("Resend delivery failed; attempting SMTP fallback.");
-        await sendViaSmtp(email, name, verificationUrl);
+        await sendViaSmtp(email, subject, text, html);
     }
+};
+
+export const sendVerificationEmail = async (email: string, name: string, verificationUrl: string): Promise<void> => {
+    await sendEmail(
+        email,
+        "Verify your email address",
+        `Hi ${name},\n\nPlease verify your email by clicking this link:\n${verificationUrl}\n\nThis link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.\n`,
+        `
+            <p>Hi ${name},</p>
+            <p>Please verify your email by clicking the link below:</p>
+            <p><a href="${verificationUrl}">${verificationUrl}</a></p>
+            <p>This link expires in ${EMAIL_VERIFICATION_TTL_MINUTES} minutes.</p>
+        `
+    );
+};
+
+export const sendOneTimeCodeEmail = async (
+    email: string,
+    name: string,
+    subject: string,
+    intro: string,
+    code: string,
+    ttlMinutes: number
+): Promise<void> => {
+    await sendEmail(
+        email,
+        subject,
+        `Hi ${name},\n\n${intro}\n\nYour one-time code is: ${code}\n\nThis code expires in ${ttlMinutes} minutes.\n`,
+        `
+            <p>Hi ${name},</p>
+            <p>${intro}</p>
+            <p style="font-size: 24px; font-weight: 700; letter-spacing: 0.3em;">${code}</p>
+            <p>This code expires in ${ttlMinutes} minutes.</p>
+        `
+    );
 };
 
 export const createEmailVerificationToken = async (
@@ -170,6 +198,73 @@ export const createEmailVerificationToken = async (
     );
 
     return rawVerificationToken;
+};
+
+export const createOtpCode = async (
+    client: DbClient,
+    email: string,
+    purpose: OtpPurpose,
+    options?: { userId?: string; invalidateExisting?: boolean; ttlMinutes?: number }
+): Promise<string> => {
+    const rawCode = generateOtpCode();
+    const codeHash = hashToken(rawCode);
+    const ttlMinutes = options?.ttlMinutes || OTP_TTL_MINUTES;
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+    if (options?.invalidateExisting) {
+        await client.query(
+            `UPDATE auth_otp_codes
+             SET used_at = NOW()
+             WHERE email = $1
+               AND purpose = $2
+               AND used_at IS NULL`,
+            [email, purpose]
+        );
+    }
+
+    await client.query(
+        `INSERT INTO auth_otp_codes (id, user_id, email, purpose, code_hash, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [randomUUID(), options?.userId || null, email, purpose, codeHash, expiresAt]
+    );
+
+    return rawCode;
+};
+
+export const consumeOtpCode = async (
+    client: DbClient,
+    email: string,
+    purpose: OtpPurpose,
+    code: string
+): Promise<{ id: string; user_id: string | null; email: string }> => {
+    const codeHash = hashToken(code);
+    const result = await client.query(
+        `SELECT id, user_id, email
+         FROM auth_otp_codes
+         WHERE email = $1
+           AND purpose = $2
+           AND code_hash = $3
+           AND used_at IS NULL
+           AND expires_at > NOW()
+         ORDER BY created_at DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [email, purpose, codeHash]
+    );
+
+    if (result.rows.length === 0) {
+        throw new Error("Invalid or expired OTP");
+    }
+
+    const otpRow = result.rows[0];
+    await client.query(
+        `UPDATE auth_otp_codes
+         SET used_at = NOW()
+         WHERE id = $1`,
+        [otpRow.id]
+    );
+
+    return otpRow;
 };
 
 export const verifyEmailProviderConnection = async (): Promise<void> => {
@@ -211,6 +306,7 @@ const authLimiterBase = {
 
 const verifyEmailLimiter = rateLimit({ ...authLimiterBase, max: 20 });
 const resendVerificationLimiter = rateLimit({ ...authLimiterBase, max: 5 });
+const otpVerificationLimiter = rateLimit({ ...authLimiterBase, max: 10 });
 
 export const emailVerificationRouter = Router();
 
@@ -317,6 +413,125 @@ emailVerificationRouter.post('/api/auth/resend-verification', resendVerification
         }
         console.error("Resend verification email failed:", err);
         return res.status(500).json({ error: "Failed to send verification email" });
+    } finally {
+        client.release();
+    }
+});
+
+emailVerificationRouter.post('/api/auth/send-email-otp', resendVerificationLimiter, authenticateToken, async (req: Request, res: Response) => {
+    if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const client = await getClient();
+    try {
+        const userResult = await client.query(
+            `SELECT id, email, name, is_email_verified
+             FROM users
+             WHERE id = $1
+             LIMIT 1`,
+            [req.user.id]
+        );
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const dbUser = userResult.rows[0];
+        if (Boolean(dbUser.is_email_verified)) {
+            return res.status(400).json({ error: "Email is already verified" });
+        }
+
+        await client.query("BEGIN");
+        const code = await createOtpCode(client, dbUser.email, "email_verification", {
+            userId: dbUser.id,
+            invalidateExisting: true,
+            ttlMinutes: OTP_TTL_MINUTES
+        });
+        await client.query("COMMIT");
+
+        await sendOneTimeCodeEmail(
+            dbUser.email,
+            dbUser.name || "User",
+            "Your email verification OTP",
+            "Use this OTP to verify your APCTT account email address.",
+            code,
+            OTP_TTL_MINUTES
+        );
+
+        return res.json({
+            success: true,
+            message: "Verification OTP sent to your email address.",
+            ...(process.env.NODE_ENV === "development" ? { verification_debug_otp: code } : {})
+        });
+    } catch (err) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // Ignore rollback errors.
+        }
+        console.error("Send email OTP failed:", err);
+        return res.status(500).json({ error: "Failed to send verification OTP" });
+    } finally {
+        client.release();
+    }
+});
+
+emailVerificationRouter.post('/api/auth/verify-email-otp', otpVerificationLimiter, authenticateToken, async (req: Request, res: Response) => {
+    if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const code = String(req.body?.code || "").trim();
+    if (!/^\d{6}$/.test(code)) {
+        return res.status(400).json({ error: "A valid 6-digit OTP is required" });
+    }
+
+    const client = await getClient();
+    try {
+        await client.query("BEGIN");
+
+        const userResult = await client.query(
+            `SELECT id, email, is_email_verified
+             FROM users
+             WHERE id = $1
+             LIMIT 1
+             FOR UPDATE`,
+            [req.user.id]
+        );
+
+        if (userResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const dbUser = userResult.rows[0];
+        if (Boolean(dbUser.is_email_verified)) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Email is already verified" });
+        }
+
+        await consumeOtpCode(client, dbUser.email, "email_verification", code);
+        await client.query(
+            `UPDATE users
+             SET is_email_verified = TRUE
+             WHERE id = $1`,
+            [dbUser.id]
+        );
+
+        await client.query("COMMIT");
+        return res.json({ success: true, message: "Email verified successfully." });
+    } catch (err) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // Ignore rollback errors.
+        }
+        if (err instanceof Error && err.message === "Invalid or expired OTP") {
+            return res.status(400).json({ error: err.message });
+        }
+        console.error("Verify email OTP failed:", err);
+        return res.status(500).json({ error: "Failed to verify email OTP" });
     } finally {
         client.release();
     }

@@ -5,8 +5,9 @@ import { UserAccount, UserScenario, VerificationStatus } from '../types';
 
 interface AuthContextType {
   user: UserAccount | null;
-  login: (email: string, password: string, captchaToken?: string) => Promise<boolean>;
+  login: (email: string, password: string, captchaToken?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  updateUser: (updates: Partial<UserAccount>) => void;
   isLoggedIn: boolean;
 }
 
@@ -48,30 +49,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const persistUser = (nextUser: UserAccount | null) => {
+    setUser(nextUser);
+    if (nextUser) {
+      localStorage.setItem('apctt_user_account', JSON.stringify(nextUser));
+    } else {
+      localStorage.removeItem('apctt_user_account');
+    }
+  };
+
   const login = async (email: string, password: string, captchaToken?: string) => {
     try {
       const response = await apiService.loginUser(email, password, captchaToken);
       const mappedUser = toUserAccount(response.user);
-      setUser(mappedUser);
-      localStorage.setItem('apctt_user_account', JSON.stringify(mappedUser));
+      persistUser(mappedUser);
       if (response.accessToken) {
         localStorage.setItem('apctt_access_token', response.accessToken);
       }
-      return true;
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error('Login error:', error);
-      return false;
+      return { success: false, error: error?.message || 'Login failed' };
     }
   };
 
+  const updateUser = (updates: Partial<UserAccount>) => {
+    setUser((current) => {
+      if (!current) return current;
+      const nextUser = { ...current, ...updates };
+      localStorage.setItem('apctt_user_account', JSON.stringify(nextUser));
+      return nextUser;
+    });
+  };
+
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('apctt_user_account');
+    persistUser(null);
     localStorage.removeItem('apctt_access_token');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoggedIn: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, isLoggedIn: !!user }}>
       {children}
     </AuthContext.Provider>
   );
